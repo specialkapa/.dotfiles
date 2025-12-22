@@ -1,0 +1,34 @@
+[user]
+    name = Konstantinos Papazafeiropoulos
+    email = kostas.papazafeiropoulos@tnp.eu
+
+[core]
+    autocrlf = input
+    pager = delta
+
+[interactive]
+    diffFilter = delta --color-only
+
+[filter "lfs"]
+    clean = git-lfs clean -- %f
+    smudge = git-lfs smudge -- %f 
+    process = git-lfs filter-process
+    required = true
+	
+[delta]
+    navigate = true  # use n and N to move between diff sections
+    dark = true      # or light = true, or omit for auto-detection
+    line-numbers = true
+    side-by-side = true
+    hyperlinks = true
+    syntax-theme = Catppuccin Mocha 
+
+[merge]
+    conflictStyle = zdiff3
+
+[difftool]  
+    prompt = false
+[alias]
+    adog = log --all --decorate --oneline --graph
+[init]
+	defaultBranch = main

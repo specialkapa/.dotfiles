@@ -1,0 +1,14 @@
+gui:
+  nerdFontsVersion: "3"
+  sidePanelWidth: 0.3
+  theme:
+    selectedLineBgColor:
+      - reverse
+    selectedRangeBgColor:
+      - reverse
+git:
+  pagers:
+    - colorArg: always
+      pager: delta -s --dark --paging=never
+  # branchLogCmd: sh -c "~/.config/lazygit/branch-log.sh"
+  branchLogCmd: git-graph --model simple --style round --format "%h <%ae> (%as)%d %s"
