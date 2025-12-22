@@ -218,6 +218,19 @@ install_if_not_exists neovim nvim
 install_with_brew git-delta
 install_with_brew bat
 
+if ! command_exists "atuin"; then
+    echo "$package is not installed. Installing now."
+    curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
+    if command_exists "atuin"; then
+        show_success "atuin installation complete."
+    else
+        show_error "Failed to install $package."
+        return 1
+    fi
+else
+    show_warning "atuin is already installed."
+fi
+
 git config --global core.pager delta
 git config --global interactive.diffFilter 'delta --color-only'
 git config --global delta.navigate true
