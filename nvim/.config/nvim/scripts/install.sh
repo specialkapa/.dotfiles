@@ -217,6 +217,7 @@ install_with_brew lazydocker
 install_if_not_exists neovim nvim
 install_with_brew git-delta
 install_with_brew bat
+install_with_brew stow
 
 if ! command_exists "atuin"; then
     echo "$package is not installed. Installing now."
