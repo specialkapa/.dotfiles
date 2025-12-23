@@ -181,6 +181,51 @@ return {
       end
     end
 
+    local function python_dap_session_active()
+      local session = dap.session()
+      return session and session.config and session.config.type == 'python'
+    end
+
+    local function set_repl_python_filetype(buf)
+      if not python_dap_session_active() then
+        return
+      end
+      local ft = vim.bo[buf].filetype
+      if ft == 'python' then
+        return
+      end
+      if not vim.b[buf].dap_repl_ft then
+        vim.b[buf].dap_repl_ft = ft
+      end
+      vim.b[buf].dap_repl = true
+      vim.bo[buf].filetype = 'python'
+    end
+
+    local function retag_open_repl_buffers()
+      if not python_dap_session_active() then
+        return
+      end
+      for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+        local ft = vim.bo[buf].filetype
+        if ft == 'dapui_repl' or ft == 'dap-repl' then
+          set_repl_python_filetype(buf)
+        end
+      end
+    end
+
+    local function restore_repl_filetypes()
+      for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+        local original_ft = vim.b[buf].dap_repl_ft
+        if original_ft then
+          vim.b[buf].dap_repl_ft = nil
+          vim.b[buf].dap_repl = nil
+          if vim.bo[buf].filetype ~= original_ft then
+            vim.bo[buf].filetype = original_ft
+          end
+        end
+      end
+    end
+
     local function open_breakpoint_picker()
       local ok, telescope = pcall(require, 'telescope')
       if not ok then
@@ -309,10 +354,17 @@ return {
     vim.api.nvim_create_autocmd({ 'FileType', 'BufWinEnter', 'WinEnter', 'TermEnter' }, {
       callback = function(args)
         local ft = vim.bo[args.buf].filetype
-        if not dapui_filetypes[ft] then
+        if not dapui_filetypes[ft] and not vim.b[args.buf].dap_repl then
           return
         end
         strip_dapui_numbers(args.win or vim.api.nvim_get_current_win())
+      end,
+    })
+
+    vim.api.nvim_create_autocmd('FileType', {
+      pattern = { 'dap-repl', 'dapui_repl' },
+      callback = function(args)
+        set_repl_python_filetype(args.buf)
       end,
     })
 
@@ -328,6 +380,7 @@ return {
     dap.listeners.after.event_initialized['dapui_config'] = function()
       last_stop_reason = nil
       dapui.open()
+      retag_open_repl_buffers()
     end
 
     dap.listeners.after.event_stopped['dapui_config'] = function(_, body)
@@ -342,6 +395,8 @@ return {
 
     dap.listeners.before.event_terminated['dapui_config'] = close_if_not_exception
     dap.listeners.before.event_exited['dapui_config'] = close_if_not_exception
+    dap.listeners.before.event_terminated['dap_repl_filetype'] = restore_repl_filetypes
+    dap.listeners.before.event_exited['dap_repl_filetype'] = restore_repl_filetypes
 
     -- Install golang specific config
     -- require('dap-go').setup()
