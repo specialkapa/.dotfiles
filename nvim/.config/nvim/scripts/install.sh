@@ -187,7 +187,7 @@ if [ -s "$HOME/.nvm/nvm.sh" ]; then
     . "$HOME/.nvm/nvm.sh"
 fi
 
-source .bashrc
+source $HOME/.bashrc
 
 if command_exists nvm && nvm install node; then
     show_success "node installation via nvm complete."
@@ -221,10 +221,11 @@ install_with_brew bat
 if ! command_exists "atuin"; then
     echo "$package is not installed. Installing now."
     curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
+    source $HOME/.bashrc
     if command_exists "atuin"; then
         show_success "atuin installation complete."
     else
-        show_error "Failed to install $package."
+        show_error "Failed to install atuin."
         return 1
     fi
 else
