@@ -73,6 +73,60 @@ return {
     end,
   },
   {
+    'numirias/semshi',
+    ft = { 'python' },
+    build = ':UpdateRemotePlugins',
+    config = function()
+      vim.g['semshi#active'] = 1
+      vim.g['semshi#always_update_all_highlights'] = 1
+      vim.g['semshi#excluded_hl_groups'] = { 'imported' }
+
+      local function apply_semshi_highlights()
+        local palettes_ok, palettes = pcall(require, 'catppuccin.palettes')
+        if not palettes_ok then
+          return
+        end
+
+        local flavour = vim.g.catppuccin_flavour or 'mocha'
+        local palette = palettes.get_palette(flavour)
+        if not palette then
+          return
+        end
+
+        vim.api.nvim_set_hl(0, 'semshiLocal', { fg = palette.lavender })
+        vim.api.nvim_set_hl(0, 'semshiGlobal', { fg = palette.blue })
+        vim.api.nvim_set_hl(0, 'semshiImported', { fg = palette.sapphire })
+        vim.api.nvim_set_hl(0, 'semshiParameter', { fg = palette.maroon })
+        vim.api.nvim_set_hl(0, 'semshiParameterUnused', { fg = palette.overlay1, italic = true })
+        vim.api.nvim_set_hl(0, 'semshiFree', { fg = palette.peach })
+        vim.api.nvim_set_hl(0, 'semshiBuiltin', { fg = palette.teal })
+        vim.api.nvim_set_hl(0, 'semshiAttribute', { fg = palette.mauve })
+        vim.api.nvim_set_hl(0, 'semshiSelf', { fg = palette.flamingo })
+        vim.api.nvim_set_hl(0, 'semshiUnresolved', { fg = palette.red, underline = true })
+        vim.api.nvim_set_hl(0, 'semshiSelected', { fg = palette.base, bg = palette.sky, bold = true })
+        vim.api.nvim_set_hl(0, 'semshiError', { fg = palette.red, bold = true, underline = true })
+        vim.api.nvim_set_hl(0, 'semshiDocstring', { fg = palette.green, italic = true })
+      end
+
+      apply_semshi_highlights()
+
+      local highlight_group = vim.api.nvim_create_augroup('SemshiCatppuccinHighlights', { clear = true })
+      vim.api.nvim_create_autocmd('ColorScheme', {
+        group = highlight_group,
+        callback = apply_semshi_highlights,
+      })
+
+      local enable_group = vim.api.nvim_create_augroup('SemshiPythonAutoEnable', { clear = true })
+      vim.api.nvim_create_autocmd('FileType', {
+        group = enable_group,
+        pattern = 'python',
+        callback = function()
+          pcall(vim.cmd, 'Semshi enable')
+        end,
+      })
+    end,
+  },
+  {
     'smzm/hydrovim',
     dependencies = { 'MunifTanjim/nui.nvim' },
     -- optional: lazy-load when F8 is pressed
