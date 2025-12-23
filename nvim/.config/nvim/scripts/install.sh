@@ -212,7 +212,7 @@ install_if_not_exists ripgrep rg
 install_if_not_exists fzf
 install_if_not_exists fd-find fd
 install_if_not_exists eza
-install_if_not_exists lazygit
+install_with_brew lazygit
 install_with_brew lazydocker
 install_if_not_exists neovim nvim
 install_with_brew git-delta
@@ -230,6 +230,15 @@ if ! command_exists "atuin"; then
 else
     show_warning "atuin is already installed."
 fi
+
+if [ -d "$HOME/.local/share/nvim/lazy-rocks" ]; then
+    rm -rf "$HOME/.local/share/nvim/lazy-rocks"
+fi
+
+if command_exists apt-get; then
+    sudo apt install -y lua5.1 luarocks build-essential curl
+elif command_exists pacman; then
+    sudo pacman -S lua51 luarocks base-devel curl
 
 git config --global core.pager delta
 git config --global interactive.diffFilter 'delta --color-only'
