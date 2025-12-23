@@ -40,4 +40,5 @@ require('lazy').setup {
   require 'plugins.noice',
   require 'plugins.db-utils',
   require 'plugins.navigation',
+  require 'plugins.tabview',
 }

@@ -219,6 +219,7 @@ install_with_brew git-delta
 install_with_brew bat
 install_with_brew stow
 install_with_brew codex
+install_with_brew tabview
 
 if ! command_exists "atuin"; then
     echo "$package is not installed. Installing now."
