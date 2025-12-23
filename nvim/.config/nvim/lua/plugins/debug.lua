@@ -51,7 +51,7 @@ return {
     }
     require('nvim-dap-repl-highlights').setup()
     require('persistent-breakpoints').setup {
-      save_dir = vim.fn.stdpath 'data' .. '/nvim_checkpoints',
+      save_dir = '~/.dotfiles/nvim/.config/nvim/lua/plugins/persistent-breakpoints/nvim_checkpoints',
       -- when to load the breakpoints? "BufReadPost" is recommended.
       load_breakpoints_event = 'BufReadPost',
       -- record the performance of different function. run
