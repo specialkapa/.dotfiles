@@ -13,7 +13,8 @@ https://www.jakewiesler.com/blog/managing-dotfiles which leverages the `stow` pa
 
 When setting up a machine from scratch.
 
-> [!IMPORTANT] You might have to do other things before any of the below steps. For example use
+> [!IMPORTANT]
+> You might have to do other things before any of the below steps. For example use
 > `atlasformer` if using a TNP laptop.
 
 > [!IMPORTANT]
