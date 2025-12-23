@@ -51,7 +51,7 @@ return {
         --   1. Create the directory if it doesn't exist
         --   2. Create `bookmarks.sqlite.db` inside this directory
         ---@type string?
-        db_dir = '~/.dotfiles/nvim/.config/nvim/lua/plugins/bookmarks',
+        db_dir = vim.fn.expand('~/.dotfiles/nvim/.config/nvim/lua/plugins/bookmarks'),
         backup = {
           enabled = true,
           -- Directory to store backup files
