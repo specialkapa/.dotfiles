@@ -102,7 +102,7 @@ return {
         vim.api.nvim_set_hl(0, 'semshiAttribute', { fg = palette.mauve })
         vim.api.nvim_set_hl(0, 'semshiSelf', { fg = palette.flamingo })
         vim.api.nvim_set_hl(0, 'semshiUnresolved', { fg = palette.red, underline = true })
-        vim.api.nvim_set_hl(0, 'semshiSelected', { fg = palette.base, bg = palette.sky, bold = true })
+        vim.api.nvim_set_hl(0, 'semshiSelected', { fg = palette.sky, bold = true })
         vim.api.nvim_set_hl(0, 'semshiError', { fg = palette.red, bold = true, underline = true })
         vim.api.nvim_set_hl(0, 'semshiDocstring', { fg = palette.green, italic = true })
       end
