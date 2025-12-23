@@ -12,6 +12,7 @@ return {
   },
   init = function()
     vim.g.db_ui_use_nerd_fonts = 1
+    vim.g.db_ui_save_location = '~/.dotfiles/nvim/.config/nvim/lua/plugins/dbui'
   end,
   config = function()
     local function latest_dbout_file()

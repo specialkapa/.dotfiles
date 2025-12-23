@@ -44,6 +44,23 @@ return {
             return ''
           end,
         },
+        -- Directory to store the database file
+        -- Default: vim.fn.stdpath("data")
+        -- You can set a custom directory
+        -- The plugin will:
+        --   1. Create the directory if it doesn't exist
+        --   2. Create `bookmarks.sqlite.db` inside this directory
+        ---@type string?
+        db_dir = '~/.dotfiles/nvim/.config/nvim/lua/plugins/bookmarks',
+        backup = {
+          enabled = true,
+          -- Directory to store backup files
+          -- Default: vim.fn.stdpath("data").."/bookmarks.backup"
+          -- You can set a custom directory
+          ---@type string?
+          dir = nil,
+          delay = 5, -- Delay in minutes before nvim opened, no back will be created if nvim earlier than the actually backup time
+        },
 
         treeview = {
           ---@type fun(node: Bookmarks.Node): string | nil
