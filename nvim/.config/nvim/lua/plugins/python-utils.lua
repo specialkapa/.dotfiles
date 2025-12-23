@@ -95,7 +95,6 @@ return {
 
         vim.api.nvim_set_hl(0, 'semshiLocal', { fg = palette.lavender })
         vim.api.nvim_set_hl(0, 'semshiGlobal', { fg = palette.blue })
-        vim.api.nvim_set_hl(0, 'semshiImported', { fg = palette.sapphire })
         vim.api.nvim_set_hl(0, 'semshiParameter', { fg = palette.maroon })
         vim.api.nvim_set_hl(0, 'semshiParameterUnused', { fg = palette.overlay1, italic = true })
         vim.api.nvim_set_hl(0, 'semshiFree', { fg = palette.peach })
