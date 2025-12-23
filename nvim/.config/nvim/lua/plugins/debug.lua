@@ -15,6 +15,8 @@ return {
     'leoluz/nvim-dap-go',
     'mfussenegger/nvim-dap-python',
     'Weissle/persistent-breakpoints.nvim',
+    -- miscellaneous dependencies
+    'nvim-treesitter/nvim-treesitter',
   },
   config = function()
     local dap = require 'dap'
