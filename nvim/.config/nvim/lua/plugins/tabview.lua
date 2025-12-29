@@ -42,51 +42,45 @@ return {
             return
           end
 
+          if vim.bo[bufnr].modified then
+            vim.notify('Tabview skipped; buffer has unsaved changes.', vim.log.levels.WARN)
+            return
+          end
+
           vim.b[bufnr].tabview_opened = true
           local cmd = ('tw %s --theme catppuccin'):format(vim.fn.shellescape(path))
 
-          local ok, toggleterm = pcall(require, 'toggleterm.terminal')
-          if ok then
-            local term = toggleterm.Terminal:new {
-              cmd = cmd,
-              direction = 'float',
-              close_on_exit = true,
-              hidden = true,
-            }
-            term:open()
-          else
-            local buf = vim.api.nvim_create_buf(false, true)
-            local width = math.floor(vim.o.columns * 0.9)
-            local height = math.floor(vim.o.lines * 0.8)
-            local row = math.floor((vim.o.lines - height) / 2)
-            local col = math.floor((vim.o.columns - width) / 2)
-            local win = vim.api.nvim_open_win(buf, true, {
-              relative = 'editor',
-              width = width,
-              height = height,
-              row = row,
-              col = col,
-              style = 'minimal',
-              border = 'rounded',
-            })
-            vim.fn.termopen(cmd, {
-              on_exit = function()
-                if vim.api.nvim_win_is_valid(win) then
-                  vim.api.nvim_win_close(win, true)
-                end
-                if vim.api.nvim_buf_is_valid(buf) then
-                  vim.api.nvim_buf_delete(buf, { force = true })
-                end
-              end,
-            })
-            vim.cmd 'startinsert'
+          local win = vim.fn.bufwinid(bufnr)
+          if win == -1 then
+            return
           end
 
-          if not vim.bo[bufnr].modified then
+          vim.api.nvim_set_current_win(win)
+          vim.cmd 'enew'
+
+          local term_buf = vim.api.nvim_get_current_buf()
+          local term_win = vim.api.nvim_get_current_win()
+          vim.bo[term_buf].bufhidden = 'wipe'
+          vim.wo[term_win].number = false
+          vim.wo[term_win].relativenumber = false
+          vim.wo[term_win].statuscolumn = ''
+
+          if vim.api.nvim_buf_is_valid(bufnr) then
             vim.api.nvim_buf_delete(bufnr, { force = true })
-          else
-            vim.notify('Tabview opened; buffer has unsaved changes so it was kept.', vim.log.levels.WARN)
           end
+
+          vim.fn.termopen(cmd, {
+            on_exit = function()
+              vim.schedule(function()
+                if vim.api.nvim_win_is_valid(term_win) then
+                  vim.api.nvim_win_close(term_win, true)
+                elseif vim.api.nvim_buf_is_valid(term_buf) then
+                  vim.api.nvim_buf_delete(term_buf, { force = true })
+                end
+              end)
+            end,
+          })
+          vim.cmd 'startinsert'
         end,
       })
     end,
