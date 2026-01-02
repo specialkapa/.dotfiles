@@ -47,6 +47,30 @@ return {
   },
   {
     'github/copilot.vim', -- depends on node.js. Make sure it is installed
+    config = function()
+      local function set_copilot_from_marker()
+        local marker = vim.fn.getcwd() .. '/.copilot'
+        local enable = true
+        if vim.fn.filereadable(marker) == 1 then
+          local lines = vim.fn.readfile(marker)
+          local value = vim.trim(lines[1] or '')
+          enable = value ~= 'enable=false'
+        end
+        if enable then
+          vim.cmd 'Copilot enable'
+        else
+          vim.cmd 'Copilot disable'
+        end
+      end
+
+      local group = vim.api.nvim_create_augroup('CopilotLearningMode', { clear = true })
+      vim.api.nvim_create_autocmd({ 'VimEnter', 'DirChanged' }, {
+        group = group,
+        callback = function()
+          set_copilot_from_marker()
+        end,
+      })
+    end,
   },
   {
     'greggh/claude-code.nvim',
