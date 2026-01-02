@@ -201,31 +201,6 @@ return {
       vim.bo[buf].filetype = 'python'
     end
 
-    local function retag_open_repl_buffers()
-      if not python_dap_session_active() then
-        return
-      end
-      for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-        local ft = vim.bo[buf].filetype
-        if ft == 'dapui_repl' or ft == 'dap-repl' then
-          set_repl_python_filetype(buf)
-        end
-      end
-    end
-
-    local function restore_repl_filetypes()
-      for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-        local original_ft = vim.b[buf].dap_repl_ft
-        if original_ft then
-          vim.b[buf].dap_repl_ft = nil
-          vim.b[buf].dap_repl = nil
-          if vim.bo[buf].filetype ~= original_ft then
-            vim.bo[buf].filetype = original_ft
-          end
-        end
-      end
-    end
-
     local function open_breakpoint_picker()
       local ok, telescope = pcall(require, 'telescope')
       if not ok then
@@ -357,7 +332,10 @@ return {
         if not dapui_filetypes[ft] and not vim.b[args.buf].dap_repl then
           return
         end
-        strip_dapui_numbers(args.win or vim.api.nvim_get_current_win())
+
+        for _, win in ipairs(vim.fn.win_findbuf(args.buf)) do
+          strip_dapui_numbers(win)
+        end
       end,
     })
 
@@ -371,32 +349,9 @@ return {
     -- Toggle to see last session result. Without this, you can't see session output in case of unhandled exception.
     vim.keymap.set('n', '<F7>', dapui.toggle, { desc = 'Debug: See last session result.' })
 
-    local function close_dapui()
-      dapui.close()
-    end
-
-    local last_stop_reason
-
     dap.listeners.after.event_initialized['dapui_config'] = function()
-      last_stop_reason = nil
-      dapui.open()
-      retag_open_repl_buffers()
+      dapui.open { reset = true }
     end
-
-    dap.listeners.after.event_stopped['dapui_config'] = function(_, body)
-      last_stop_reason = body and body.reason or nil
-    end
-
-    local function close_if_not_exception()
-      if last_stop_reason ~= 'exception' then
-        close_dapui()
-      end
-    end
-
-    dap.listeners.before.event_terminated['dapui_config'] = close_if_not_exception
-    dap.listeners.before.event_exited['dapui_config'] = close_if_not_exception
-    dap.listeners.before.event_terminated['dap_repl_filetype'] = restore_repl_filetypes
-    dap.listeners.before.event_exited['dap_repl_filetype'] = restore_repl_filetypes
 
     -- Install golang specific config
     -- require('dap-go').setup()
