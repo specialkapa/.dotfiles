@@ -235,7 +235,7 @@ return {
               return bufnr
             end
             local name = vim.api.nvim_buf_get_name(bufnr)
-            if name:match('DAP REPL') or name:match('dap%-repl') then
+            if name:match 'DAP REPL' or name:match 'dap%-repl' then
               return bufnr
             end
           end
@@ -248,11 +248,49 @@ return {
         local seen = {}
         local items = {}
 
-        for _, line in ipairs(lines) do
-          local cmd = line:match('^dap> (.+)$')
-          if cmd and cmd ~= '' and not seen[cmd] then
-            seen[cmd] = true
-            table.insert(items, cmd)
+        local function trim_empty_edges(parts)
+          local first = 1
+          local last = #parts
+          while first <= last and parts[first] == '' do
+            first = first + 1
+          end
+          while last >= first and parts[last] == '' do
+            last = last - 1
+          end
+          if first > last then
+            return {}
+          end
+          local trimmed = {}
+          for idx = first, last do
+            table.insert(trimmed, parts[idx])
+          end
+          return trimmed
+        end
+
+        local i = 1
+        while i <= #lines do
+          local line = lines[i]
+          local cmd = line:match '^dap>%s*(.*)$'
+          if cmd ~= nil then
+            local parts = {}
+            table.insert(parts, cmd)
+            local j = i + 1
+            while j <= #lines do
+              if lines[j]:match '^dap>' then
+                break
+              end
+              table.insert(parts, lines[j])
+              j = j + 1
+            end
+            parts = trim_empty_edges(parts)
+            local combined = table.concat(parts, '\n')
+            if combined ~= '' and not seen[combined] then
+              seen[combined] = true
+              table.insert(items, combined)
+            end
+            i = j
+          else
+            i = i + 1
           end
         end
 
@@ -288,6 +326,7 @@ return {
 
         local pickers = require 'telescope.pickers'
         local finders = require 'telescope.finders'
+        local previewers = require 'telescope.previewers'
         local conf = require('telescope.config').values
         local actions = require 'telescope.actions'
         local action_state = require 'telescope.actions.state'
@@ -295,19 +334,40 @@ return {
 
         pickers
           .new({}, {
-            prompt_title = 'DAP REPL history',
-            finder = finders.new_table(items),
-            sorter = conf.generic_sorter({}),
+            prompt_title = 'dap repl history',
+            results_title = 'results',
+            preview_title = 'preview',
+            finder = finders.new_table {
+              results = items,
+              entry_maker = function(entry)
+                local first_line = entry:match '([^\n\r]*)' or entry
+                return {
+                  value = entry,
+                  display = first_line,
+                  ordinal = entry,
+                }
+              end,
+            },
+            sorter = conf.generic_sorter {},
             layout_strategy = 'cursor',
             layout_config = { width = 0.6, height = 20 },
+            previewer = previewers.new_buffer_previewer {
+              define_preview = function(self, entry, _)
+                if not entry or not entry.value then
+                  return
+                end
+                local lines = vim.split(entry.value, '\n', { plain = true })
+                vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+              end,
+            },
             attach_mappings = function(prompt_bufnr, _)
               actions.select_default:replace(function()
                 actions.close(prompt_bufnr)
                 local selection = action_state.get_selected_entry()
-                if not selection or not selection[1] then
+                if not selection or not selection.value then
                   return
                 end
-                dap_module.repl.execute(selection[1])
+                dap_module.repl.execute(selection.value)
               end)
               return true
             end,
