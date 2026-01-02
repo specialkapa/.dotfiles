@@ -221,6 +221,103 @@ return {
       end
     end
 
+    package.preload.dap_repl_history = function()
+      local M = {}
+
+      local function get_dap_repl_bufnr()
+        for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+          if vim.api.nvim_buf_is_loaded(bufnr) then
+            local ft = vim.bo[bufnr].filetype
+            if vim.b[bufnr].dap_repl then
+              return bufnr
+            end
+            if ft == 'dap-repl' or ft == 'dap_repl' or ft == 'dapui_repl' then
+              return bufnr
+            end
+            local name = vim.api.nvim_buf_get_name(bufnr)
+            if name:match('DAP REPL') or name:match('dap%-repl') then
+              return bufnr
+            end
+          end
+        end
+        return nil
+      end
+
+      local function collect_repl_inputs(bufnr)
+        local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
+        local seen = {}
+        local items = {}
+
+        for _, line in ipairs(lines) do
+          local cmd = line:match('^dap> (.+)$')
+          if cmd and cmd ~= '' and not seen[cmd] then
+            seen[cmd] = true
+            table.insert(items, cmd)
+          end
+        end
+
+        return items
+      end
+
+      function M.pick(opts)
+        opts = opts or {}
+        local bufnr = get_dap_repl_bufnr()
+        if not bufnr then
+          if not opts._attempted_open then
+            require('dap').repl.open()
+            vim.defer_fn(function()
+              M.pick { _attempted_open = true }
+            end, 20)
+            return
+          end
+          vim.notify('No DAP REPL buffer found (start a session / open the REPL first).', vim.log.levels.WARN)
+          return
+        end
+
+        local items = collect_repl_inputs(bufnr)
+        if #items == 0 then
+          vim.notify('No REPL inputs found in the DAP REPL buffer.', vim.log.levels.INFO)
+          return
+        end
+
+        local ok_telescope = pcall(require, 'telescope')
+        if not ok_telescope then
+          vim.notify('telescope.nvim is not available.', vim.log.levels.ERROR)
+          return
+        end
+
+        local pickers = require 'telescope.pickers'
+        local finders = require 'telescope.finders'
+        local conf = require('telescope.config').values
+        local actions = require 'telescope.actions'
+        local action_state = require 'telescope.actions.state'
+        local dap_module = require 'dap'
+
+        pickers
+          .new({}, {
+            prompt_title = 'DAP REPL history',
+            finder = finders.new_table(items),
+            sorter = conf.generic_sorter({}),
+            layout_strategy = 'cursor',
+            layout_config = { width = 0.6, height = 20 },
+            attach_mappings = function(prompt_bufnr, _)
+              actions.select_default:replace(function()
+                actions.close(prompt_bufnr)
+                local selection = action_state.get_selected_entry()
+                if not selection or not selection[1] then
+                  return
+                end
+                dap_module.repl.execute(selection[1])
+              end)
+              return true
+            end,
+          })
+          :find()
+      end
+
+      return M
+    end
+
     -- Basic debugging keymaps, feel free to change to your liking!
     vim.keymap.set('n', '<leader>rb', persistent_breakpoints_api.clear_all_breakpoints, { desc = 'Debug: [R]emove all [B]reakpoints' })
     vim.keymap.set('n', '<F5>', function()
@@ -253,6 +350,9 @@ return {
     vim.keymap.set('n', '<leader>B', persistent_breakpoints_api.set_conditional_breakpoint, { desc = 'Debug: Toggle Conditional [B]reakpoint' })
     vim.keymap.set('n', '<leader>bl', persistent_breakpoints_api.set_log_point, { desc = 'Debug: Toggle [L]og Point' })
     vim.keymap.set('n', '<leader>bb', open_breakpoint_picker, { desc = 'Debug: [B]rowse [B]reakpoints' })
+    vim.keymap.set('n', '<leader>dh', function()
+      require('dap_repl_history').pick()
+    end, { desc = 'DAP REPL history (Telescope)' })
 
     vim.keymap.set('n', '<space>?', function()
       require('dapui').eval(nil, { enter = true })
