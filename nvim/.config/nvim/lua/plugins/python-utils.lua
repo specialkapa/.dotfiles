@@ -1,3 +1,68 @@
+local function patch_semshi_node()
+  local node_path = vim.fn.stdpath 'data' .. '/lazy/semshi/rplugin/python3/semshi/node.py'
+  if vim.fn.filereadable(node_path) ~= 1 then
+    return
+  end
+
+  local lines = vim.fn.readfile(node_path)
+  local text = table.concat(lines, '\n')
+  if text:find('elif self%.symbol is None') and text:find('if self%.symbol is None:%s+return None') then
+    return
+  end
+
+  local original = [[        if hl_group == ATTRIBUTE:
+            self.symbol = None
+        else:
+            try:
+                self.symbol = self.env[-1].lookup(self.symname)
+            except KeyError:
+                # Set dummy hl group, so all fields in __repr__ are defined.
+                self.hl_group = '?'
+                raise Exception('%s can\'t lookup "%s"' % (self, self.symname))
+        if hl_group is not None:
+            self.hl_group = hl_group
+        else:
+            self.hl_group = self._make_hl_group()
+]]
+  local replacement = [[        if hl_group == ATTRIBUTE:
+            self.symbol = None
+        else:
+            try:
+                self.symbol = self.env[-1].lookup(self.symname)
+            except KeyError:
+                self.symbol = None
+        if hl_group is not None:
+            self.hl_group = hl_group
+        elif self.symbol is None:
+            self.hl_group = UNRESOLVED
+        else:
+            self.hl_group = self._make_hl_group()
+]]
+
+  local updated, count = text:gsub(original, replacement, 1)
+  if count ~= 1 then
+    return
+  end
+
+  local original_base = [[        if self.hl_group == ATTRIBUTE:
+            return self.env[-1]
+        if self.symbol.is_global():
+]]
+  local replacement_base = [[        if self.hl_group == ATTRIBUTE:
+            return self.env[-1]
+        if self.symbol is None:
+            return None
+        if self.symbol.is_global():
+]]
+
+  updated, count = updated:gsub(original_base, replacement_base, 1)
+  if count ~= 1 then
+    return
+  end
+
+  vim.fn.writefile(vim.split(updated, '\n', { plain = true }), node_path)
+end
+
 return {
   {
     -- Automatic refactoring of workspace imports on python file/dir move/rename.
@@ -75,7 +140,10 @@ return {
   {
     'numirias/semshi',
     ft = { 'python' },
-    build = ':UpdateRemotePlugins',
+    build = function()
+      vim.cmd 'UpdateRemotePlugins'
+      patch_semshi_node()
+    end,
     config = function()
       vim.g['semshi#active'] = 1
       vim.g['semshi#always_update_all_highlights'] = 1
