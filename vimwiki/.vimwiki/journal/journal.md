@@ -99,3 +99,46 @@
 - [x] refactored some parts to utilise the lazy `polars` API instead of eager evaluation.
 - [x] optimised the stratified sampling for the stick rate application using hashing and ranking
       along with the lazy `polars` API.
+
+# 2025-12-17
+
+- [x] stress forecast optimisations continued.
+
+# 2025-12-18
+
+- [x] stress forecast optimisations continued.
+
+# 2025-12-19
+
+- [x] setting WSL environment from scratch.
+
+# 2025-12-22
+
+- [x] Recognise Bank stress forecast: ensure that defaults remain on book until write off even if
+      going past their maturity date.
+- [x] Recognise Bank stress forecast: ensure sticky accounts are not allowed to default of attrite
+      across their whole lifetime and not just for one month.
+- [x] Recognise Bank stress forecast: ensure that the default balance is carried forward + monthly
+      missed interest for defaults.
+
+# 2025-12-23
+
+- [x] Recognise Bank stress forecast
+  - [x] Store balance summaries by chunk, batch, iteration, date, backbook/frontbook and forecast
+        segment name to `redis`.
+  - [x] Once all batched, chunks and iterations are done, apportion the balance forecast target
+        across the different dimensions and derive appropriate scaling factors to adjust facility
+        level balances such that the actual forecast matches the target forecast.
+
+# 2026-01-05
+
+- [x] Recognise Bank stress forecast
+  - [x] debug balance scaling
+  - [ ] why is the account synthetic-bcd202511306-01 rolling from stage 3 to stage 1. Default should
+        be an absorbing state.
+
+
+# 2026-01-09
+
+- [ ] Todo item
+

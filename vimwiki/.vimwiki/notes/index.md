@@ -33,4 +33,23 @@ forecast date as a reference point.
 
 # LLM stuff
 
-Claude code PR git integration
+[Claude](Claude) code PR git integration
+
+# edge cases checked:
+
+- backbook
+  - [x] account in default as of first forecast date is kept on book until written off (12 months
+        later).
+  - [x] account that is always in stage 1 and is not attrited remains on book until maturity date.
+  - [x] account that goes into stage 2 remains on book until marurity date.
+  - [x] accounts that are in default but the first date does not match the reporting date are fine.
+        That is because a clone for each of the forecast dates until the account goes into default
+        is created for such accounts. The accounts are tagged with a "-{forecast_month_number}" to
+        easily identify them.
+  - [x] accounts that default and need to be kept on book until write off are kept on book even if
+        the have to stay on book beyond the forecast horizon.
+- frontbook
+  - [x] accounts that default and need to be kept on book until write off are kept on book even if
+        the have to stay on book beyond the forecast horizon.
+- [x] **FIXED**. Seems like the value in _date_ column for some irregular accounts is not months
+      end.
