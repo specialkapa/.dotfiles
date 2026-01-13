@@ -212,3 +212,8 @@ end, with_desc 'Toggle test summary')
 vim.keymap.set('n', '<leader>nc', function()
   require('neotest').run.run { suite = true, env = { CI = true } }
 end, with_desc 'Run all tests with CI')
+
+vim.keymap.set('n', '<leader>yp', function()
+  vim.fn.setreg('+', vim.fn.expand '%:p')
+  print('Copied: ' .. vim.fn.expand '%:p')
+end, { desc = '[Y]ank absolute [P]ath' })
