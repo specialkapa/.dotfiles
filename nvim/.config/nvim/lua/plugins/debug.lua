@@ -17,6 +17,8 @@ return {
     'Weissle/persistent-breakpoints.nvim',
     -- miscellaneous dependencies
     'nvim-treesitter/nvim-treesitter',
+    -- SQLite for persistent REPL history
+    'kkharji/sqlite.lua',
   },
   config = function()
     local dap = require 'dap'
@@ -191,14 +193,32 @@ return {
         return
       end
       local ft = vim.bo[buf].filetype
-      if ft == 'python' then
-        return
+      vim.b[buf].dap_repl = true
+      if ft == 'python' and vim.b[buf].dap_repl_ft then
+        vim.bo[buf].filetype = vim.b[buf].dap_repl_ft
+        ft = vim.bo[buf].filetype
       end
       if not vim.b[buf].dap_repl_ft then
         vim.b[buf].dap_repl_ft = ft
       end
-      vim.b[buf].dap_repl = true
-      vim.bo[buf].filetype = 'python'
+      if ft == 'dap-repl' or ft == 'dap_repl' or ft == 'dapui_repl' then
+        vim.bo[buf].syntax = 'python'
+        pcall(vim.treesitter.start, buf, 'python')
+      end
+    end
+
+    local function apply_python_repl_highlight()
+      if not python_dap_session_active() then
+        return
+      end
+      for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_is_loaded(bufnr) then
+          local ft = vim.bo[bufnr].filetype
+          if ft == 'dap-repl' or ft == 'dap_repl' or ft == 'dapui_repl' then
+            set_repl_python_filetype(bufnr)
+          end
+        end
+      end
     end
 
     local function open_breakpoint_picker()
@@ -223,6 +243,94 @@ return {
 
     package.preload.dap_repl_history = function()
       local M = {}
+
+      -- SQLite database setup for persistent history
+      local db_path = vim.fn.expand '~/.dotfiles/nvim/.config/nvim/lua/plugins/dap-repl/dap-repl-history.sqlite.db'
+      local sqlite_ok, sqlite = pcall(require, 'sqlite')
+      local db = nil
+
+      local function init_db()
+        if db then
+          return db
+        end
+        if not sqlite_ok then
+          return nil
+        end
+
+        local db_dir = vim.fn.fnamemodify(db_path, ':h')
+        if vim.fn.isdirectory(db_dir) == 0 then
+          vim.fn.mkdir(db_dir, 'p')
+        end
+
+        db = sqlite {
+          uri = db_path,
+          repl_history = {
+            id = true,
+            command = { 'text', required = true, unique = true },
+            created_at = { 'integer', required = true },
+            last_used_at = { 'integer', required = true },
+          },
+        }
+        return db
+      end
+
+      local function cleanup_old_records()
+        local database = init_db()
+        if not database then
+          return
+        end
+
+        local three_days_ago = os.time() - (3 * 24 * 60 * 60)
+        pcall(function()
+          database.repl_history:remove { where = { last_used_at = { '<', three_days_ago } } }
+        end)
+      end
+
+      local function save_command(command)
+        local database = init_db()
+        if not database or not command or command == '' then
+          return
+        end
+
+        local now = os.time()
+
+        local ok, existing = pcall(function()
+          return database.repl_history:where { command = command }
+        end)
+
+        if ok and existing and existing.id then
+          pcall(function()
+            database.repl_history:update { where = { id = existing.id }, set = { last_used_at = now } }
+          end)
+        else
+          pcall(function()
+            database.repl_history:insert { command = command, created_at = now, last_used_at = now }
+          end)
+        end
+      end
+
+      local function load_all_commands()
+        local database = init_db()
+        if not database then
+          return {}
+        end
+
+        cleanup_old_records()
+
+        local ok, rows = pcall(function()
+          return database.repl_history:get { order_by = { desc = 'last_used_at' } }
+        end)
+
+        if not ok or not rows then
+          return {}
+        end
+
+        local commands = {}
+        for _, row in ipairs(rows) do
+          table.insert(commands, row.command)
+        end
+        return commands
+      end
 
       local function get_dap_repl_bufnr()
         for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
@@ -297,24 +405,53 @@ return {
         return items
       end
 
-      function M.pick(opts)
-        opts = opts or {}
+      -- Save all commands from current REPL buffer to database
+      function M.save_session_history()
         local bufnr = get_dap_repl_bufnr()
         if not bufnr then
-          if not opts._attempted_open then
-            require('dap').repl.open()
-            vim.defer_fn(function()
-              M.pick { _attempted_open = true }
-            end, 20)
-            return
-          end
-          vim.notify('No DAP REPL buffer found (start a session / open the REPL first).', vim.log.levels.WARN)
           return
         end
 
         local items = collect_repl_inputs(bufnr)
+        for _, cmd in ipairs(items) do
+          save_command(cmd)
+        end
+      end
+
+      function M.pick(opts)
+        opts = opts or {}
+
+        -- First, save any commands from current session to database
+        M.save_session_history()
+
+        -- Load all persisted commands from database
+        local db_items = load_all_commands()
+
+        -- Also collect from current buffer (in case there are new commands not yet saved)
+        local bufnr = get_dap_repl_bufnr()
+        local session_items = {}
+        if bufnr then
+          session_items = collect_repl_inputs(bufnr)
+        end
+
+        -- Merge: session items first (most recent), then DB items not already in session
+        local seen = {}
+        local items = {}
+        for _, cmd in ipairs(session_items) do
+          if not seen[cmd] then
+            seen[cmd] = true
+            table.insert(items, cmd)
+          end
+        end
+        for _, cmd in ipairs(db_items) do
+          if not seen[cmd] then
+            seen[cmd] = true
+            table.insert(items, cmd)
+          end
+        end
+
         if #items == 0 then
-          vim.notify('No REPL inputs found in the DAP REPL buffer.', vim.log.levels.INFO)
+          vim.notify('No REPL history found.', vim.log.levels.INFO)
           return
         end
 
@@ -367,6 +504,8 @@ return {
                 if not selection or not selection.value then
                   return
                 end
+                -- Save the executed command to database
+                save_command(selection.value)
                 dap_module.repl.execute(selection.value)
               end)
               return true
@@ -376,6 +515,19 @@ return {
       end
 
       return M
+    end
+
+    -- Auto-save REPL history when debug session ends
+    dap.listeners.before.event_terminated['dap_repl_history'] = function()
+      pcall(function()
+        require('dap_repl_history').save_session_history()
+      end)
+    end
+
+    dap.listeners.before.disconnect['dap_repl_history'] = function()
+      pcall(function()
+        require('dap_repl_history').save_session_history()
+      end)
     end
 
     -- Basic debugging keymaps, feel free to change to your liking!
@@ -471,7 +623,7 @@ return {
 
     -- Remove line numbers from DAP UI windows. Some panes re-enable them, so guard on multiple events.
     local function strip_dapui_numbers(win)
-      pcall(vim.api.nvim_win_set_option, win, 'statuscolumn', '')
+      pcall(vim.api.nvim_win_set_option, win, 'statuscolumn', ' ')
       pcall(vim.api.nvim_win_set_option, win, 'number', false)
       pcall(vim.api.nvim_win_set_option, win, 'relativenumber', false)
     end
@@ -506,11 +658,16 @@ return {
       end,
     })
 
+    pcall(vim.treesitter.language.register, 'python', 'dap-repl')
+    pcall(vim.treesitter.language.register, 'python', 'dap_repl')
+    pcall(vim.treesitter.language.register, 'python', 'dapui_repl')
+
     -- Toggle to see last session result. Without this, you can't see session output in case of unhandled exception.
     vim.keymap.set('n', '<F7>', dapui.toggle, { desc = 'Debug: See last session result.' })
 
     dap.listeners.after.event_initialized['dapui_config'] = function()
       dapui.open { reset = true }
+      apply_python_repl_highlight()
     end
 
     -- Install golang specific config

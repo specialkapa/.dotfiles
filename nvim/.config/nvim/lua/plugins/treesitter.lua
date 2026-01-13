@@ -52,6 +52,7 @@ return { -- Highlight, edit, and navigate code
       'tsx',
       'css',
       'html',
+      'dap_repl',
     },
     -- Autoinstall languages that are not installed
     auto_install = true,
