@@ -1,1 +1,2 @@
-[{"url": "sqlite:/home/specialkapa/ifrs9.sqlite3", "name": "ifrs9.sqlite3"}]
+[{"url": "sqlite:/home/specialkapa/ifrs9.sqlite3", "name": "ifrs9.sqlite3"}, {"url": "sqlite:/home/specialkapa/.dotfiles/nvim/.config/nvim/lua/plugins/bookmarks/bookmarks.sqlite.db", "name": "bookmarks.sqlite.db"}, {"url": "sqlite:/home/specialkapa/.dotfiles/nvim/.config/nvim/lua/plugins/dap-repl/dap-repl-history.sqlite.db", "name": "dap-repl-history.sqlite.db"}]
+
