@@ -12,7 +12,7 @@ return {
   },
   init = function()
     vim.g.db_ui_use_nerd_fonts = 1
-    vim.g.db_ui_save_location = '~/.dotfiles/nvim/.config/nvim/lua/plugins/dbui'
+    vim.g.db_ui_save_location = vim.fn.expand '~/.dotfiles/nvim/.config/nvim/lua/plugins/dbui'
   end,
   config = function()
     local function latest_dbout_file()
@@ -280,6 +280,96 @@ return {
             end
           end
         end
+      end,
+    })
+
+    -- Delete table functionality for DBUI
+    local function get_dbui_item_under_cursor()
+      -- Get the drawer instance and current item from DBUI
+      local ok, drawer = pcall(vim.fn['db_ui#drawer#get'])
+      if not ok or not drawer or vim.tbl_isempty(drawer) then
+        return nil
+      end
+
+      local content = drawer.content
+      if not content then
+        return nil
+      end
+
+      local line_nr = vim.fn.line '.'
+      local item = content[line_nr]
+      return item
+    end
+
+    local function delete_table_under_cursor()
+      local item = get_dbui_item_under_cursor()
+
+      if not item then
+        vim.notify('Unable to get DBUI item under cursor', vim.log.levels.WARN)
+        return
+      end
+
+      -- Check if this is a table item (tables have action='toggle' and are under the Tables section)
+      -- The label contains the table name
+      local table_name = item.label
+      if not table_name or table_name == '' then
+        vim.notify('No table name found under cursor', vim.log.levels.WARN)
+        return
+      end
+
+      -- Get the database key name from the item
+      local db_key_name = item.dbui_db_key_name
+      if not db_key_name then
+        vim.notify('No database connection found for this item', vim.log.levels.ERROR)
+        return
+      end
+
+      -- Get the connection info (including URL) using DBUI's API
+      local conn_info = vim.fn['db_ui#get_conn_info'](db_key_name)
+      if not conn_info or not conn_info.url then
+        vim.notify('Unable to get database connection URL', vim.log.levels.ERROR)
+        return
+      end
+
+      local db_url = conn_info.url
+
+      -- Ask for confirmation using vim.fn.confirm
+      local choice = vim.fn.confirm(
+        string.format('DROP TABLE %s?', table_name),
+        '&Yes\n&No',
+        2 -- Default to "No"
+      )
+
+      if choice ~= 1 then
+        vim.notify('Table deletion cancelled', vim.log.levels.INFO)
+        return
+      end
+
+      local drop_sql = string.format('DROP TABLE %s;', table_name)
+      local escaped_url = vim.fn.fnameescape(db_url)
+      local cmd = string.format('DB %s %s', escaped_url, drop_sql)
+
+      local ok_exec, err = pcall(vim.cmd, cmd)
+
+      if ok_exec then
+        vim.notify(string.format('Table "%s" deleted successfully', table_name), vim.log.levels.INFO)
+        -- Refresh DBUI to reflect the change by calling redraw
+        vim.schedule(function()
+          pcall(vim.cmd, 'call db_ui#drawer#get().redraw()')
+        end)
+      else
+        vim.notify(string.format('Failed to delete table: %s', tostring(err)), vim.log.levels.ERROR)
+      end
+    end
+
+    -- Set up keymap for DBUI filetype
+    vim.api.nvim_create_autocmd('FileType', {
+      pattern = 'dbui',
+      callback = function(args)
+        vim.keymap.set('n', 'D', delete_table_under_cursor, {
+          buffer = args.buf,
+          desc = 'Delete table under cursor (DROP TABLE)',
+        })
       end,
     })
 
