@@ -8,7 +8,7 @@ return {
         parquet = true,
         csv = true,
         tsv = true,
-        json = true,
+        json = false,
         jsonl = true,
         arrow = true,
         fwf = true,
