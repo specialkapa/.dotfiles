@@ -2,10 +2,9 @@ return {
   'mfussenegger/nvim-dap',
   dependencies = {
     -- Creates a beautiful debugger UI
-    'rcarriga/nvim-dap-ui',
+    'igorlfs/nvim-dap-view',
     'nvim-neotest/nvim-nio',
     'theHamsta/nvim-dap-virtual-text',
-    'LiadOz/nvim-dap-repl-highlights',
 
     -- Installs the debug adapters for you
     'williamboman/mason.nvim',
@@ -22,12 +21,7 @@ return {
   },
   config = function()
     local dap = require 'dap'
-
-    -- Preload our patched dapui REPL element so nvim-dap-ui picks it up
-    -- before it tries to require the module during setup.
-    pcall(require, 'dapui.elements.repl')
-
-    local dapui = require 'dapui'
+    local dap_view = require 'dap-view'
 
     require('mason-nvim-dap').setup {
       -- Makes a best effort to setup the various debuggers with
@@ -51,7 +45,161 @@ return {
     require('nvim-dap-virtual-text').setup {
       commented = true,
     }
-    require('nvim-dap-repl-highlights').setup()
+
+    -- Workaround for nvim-dap-view extmark bug in breakpoints view
+    -- The plugin incorrectly uses source extmark IDs as target IDs, causing "Invalid 'ns_id'" errors
+    local extmarks_module = require 'dap-view.breakpoints.util.extmarks'
+    local original_copy_extmarks = extmarks_module.copy_extmarks
+    extmarks_module.copy_extmarks = function(src_bufnr, src_row, target_row, col_offset)
+      local ok, err = pcall(original_copy_extmarks, src_bufnr, src_row, target_row, col_offset)
+      if not ok and not tostring(err):match "Invalid 'ns_id'" then
+        -- Re-raise non-extmark errors
+        error(err)
+      end
+    end
+
+    require('dap-view').setup {
+      winbar = {
+        show = true,
+        sections = { 'repl', 'breakpoints', 'watches', 'scopes', 'exceptions', 'threads', 'console' },
+        default_section = 'repl',
+        base_sections = {
+          breakpoints = {
+            keymap = 'B',
+            label = 'Breakpoints [B]',
+            short_label = ' [B]',
+          },
+          scopes = {
+            keymap = 'S',
+            label = 'Scopes [S]',
+            short_label = '󰂥 [S]',
+          },
+          exceptions = {
+            keymap = 'E',
+            label = 'Exceptions [E]',
+            short_label = '󰢃 [E]',
+          },
+          watches = {
+            keymap = 'W',
+            label = 'Watches [W]',
+            short_label = '󰛐 [W]',
+          },
+          threads = {
+            keymap = 'T',
+            label = 'Threads [T]',
+            short_label = '󱉯 [T]',
+          },
+          repl = {
+            keymap = 'R',
+            label = 'REPL [R]',
+            short_label = '󰯃 [R]',
+          },
+          sessions = {
+            keymap = 'K',
+            label = 'Sessions [K]',
+            short_label = ' [K]',
+          },
+          console = {
+            keymap = 'C',
+            label = 'Console [C]',
+            short_label = '󰆍 [C]',
+          },
+        },
+        custom_sections = {},
+        controls = {
+          enabled = true,
+          position = 'right',
+          buttons = {
+            'play',
+            'step_into',
+            'step_over',
+            'step_out',
+            'step_back',
+            'run_last',
+            'terminate',
+            'disconnect',
+          },
+          custom_buttons = {},
+        },
+      },
+      windows = {
+        size = 0.25,
+        position = 'below',
+        terminal = {
+          size = 0.5,
+          position = 'left',
+          hide = {},
+        },
+      },
+      icons = {
+        disabled = ' ',
+        disconnect = '',
+        enabled = ' ',
+        filter = '󰈲',
+        negate = ' ',
+        pause = '󰏤',
+        play = '▶',
+        run_last = '',
+        step_back = '',
+        step_into = '',
+        step_out = '',
+        step_over = '',
+        terminate = '',
+      },
+      help = {
+        border = 'rounded',
+      },
+      render = {
+        sort_variables = nil,
+        threads = {
+          format = function(name, lnum, path)
+            return {
+              { part = name, separator = ' ' },
+              { part = path, hl = 'FileName', separator = ':' },
+              { part = lnum, hl = 'LineNumber' },
+            }
+          end,
+          align = false,
+        },
+        breakpoints = {
+          format = function(line, lnum, path)
+            return {
+              { part = path, hl = 'FileName' },
+              { part = lnum, hl = 'LineNumber' },
+              { part = line, hl = true },
+            }
+          end,
+          align = false,
+        },
+      },
+      -- Controls how to jump when selecting a breakpoint or navigating the stack
+      -- Comma separated list, like the built-in 'switchbuf'. See :help 'switchbuf'
+      -- Only a subset of the options is available: newtab, useopen, usetab and uselast
+      -- Can also be a function that takes the current winnr and the bufnr that will jumped to
+      -- If a function, should return the winnr of the destination window
+      switchbuf = 'usetab,uselast',
+      -- Auto open when a session is started and auto close when all sessions finish
+      -- Alternatively, can be a string:
+      -- - "keep_terminal": as above, but keeps the terminal when the session finishes
+      -- - "open_term": open the terminal when starting a new session, nothing else
+      auto_toggle = false,
+      -- Reopen dapview when switching to a different tab
+      -- Can also be a function to dynamically choose when to follow, by returning a boolean
+      -- If a function, receives the name of the adapter for the current session as an argument
+      follow_tab = false,
+    }
+
+    -- Disable line numbers and status column in dap-view windows
+    vim.api.nvim_create_autocmd('FileType', {
+      pattern = { 'dap-view', 'dap-view-term', 'dap-repl' },
+      callback = function()
+        vim.opt_local.number = false
+        vim.opt_local.relativenumber = false
+        vim.opt_local.signcolumn = 'no'
+        vim.opt_local.statuscolumn = ' '
+      end,
+    })
+
     require('persistent-breakpoints').setup {
       save_dir = vim.fn.expand '~/.dotfiles/nvim/.config/nvim/lua/plugins/persistent-breakpoints/nvim_checkpoints',
       -- when to load the breakpoints? "BufReadPost" is recommended.
@@ -108,7 +256,7 @@ return {
     })
 
     vim.fn.sign_define('DapStopped', {
-      text = '', -- or "→"
+      text = '',
       texthl = 'DiagnosticSignWarn',
       linehl = 'Visual',
       numhl = 'DiagnosticSignWarn',
@@ -138,6 +286,8 @@ return {
           type = 'python', -- the type here established the link to the adapter definition: `dap.adapters.python`
           request = 'launch',
           name = 'Launch file',
+          repl_lang = 'python',
+          console = 'integratedTerminal',
 
           -- Options below are for debugpy, see https://github.com/microsoft/debugpy/wiki/Debug-configuration-settings for supported options
 
@@ -170,55 +320,14 @@ return {
       for _, win in ipairs(vim.api.nvim_list_wins()) do
         local buf = vim.api.nvim_win_get_buf(win)
         local ft = vim.bo[buf].filetype
-        if ft == 'dapui_repl' or ft == 'dap-repl' then
+        if ft == 'dap-repl' then
           return
         end
       end
-
-      local ok, dapui_module = pcall(require, 'dapui')
-      if ok then
-        dapui_module.open { reset = false }
-      else
-        dap.repl.open()
-      end
-    end
-
-    local function python_dap_session_active()
-      local session = dap.session()
-      return session and session.config and session.config.type == 'python'
-    end
-
-    local function set_repl_python_filetype(buf)
-      if not python_dap_session_active() then
-        return
-      end
-      local ft = vim.bo[buf].filetype
-      vim.b[buf].dap_repl = true
-      if ft == 'python' and vim.b[buf].dap_repl_ft then
-        vim.bo[buf].filetype = vim.b[buf].dap_repl_ft
-        ft = vim.bo[buf].filetype
-      end
-      if not vim.b[buf].dap_repl_ft then
-        vim.b[buf].dap_repl_ft = ft
-      end
-      if ft == 'dap-repl' or ft == 'dap_repl' or ft == 'dapui_repl' then
-        vim.bo[buf].syntax = 'python'
-        pcall(vim.treesitter.start, buf, 'python')
-      end
-    end
-
-    local function apply_python_repl_highlight()
-      if not python_dap_session_active() then
-        return
-      end
-      for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
-        if vim.api.nvim_buf_is_loaded(bufnr) then
-          local ft = vim.bo[bufnr].filetype
-          if ft == 'dap-repl' or ft == 'dap_repl' or ft == 'dapui_repl' then
-            set_repl_python_filetype(bufnr)
-          end
-        end
-      end
+      -- Use vim.schedule to defer opening, avoiding extmark issues
+      vim.schedule(function()
+        pcall(dap_view.open)
+      end)
     end
 
     local function open_breakpoint_picker()
@@ -339,7 +448,7 @@ return {
             if vim.b[bufnr].dap_repl then
               return bufnr
             end
-            if ft == 'dap-repl' or ft == 'dap_repl' or ft == 'dapui_repl' then
+            if ft == 'dap-repl' or ft == 'dap_repl' then
               return bufnr
             end
             local name = vim.api.nvim_buf_get_name(bufnr)
@@ -557,6 +666,7 @@ return {
     end, { desc = 'Debug: Restart' })
     vim.keymap.set('n', '<F1>', dap.step_into, { desc = 'Debug: Step Into' })
     vim.keymap.set('n', '<F2>', dap.step_out, { desc = 'Debug: Step Out' })
+    vim.keymap.set('n', '<F3>', dap.terminate, { desc = 'Debug: Terminate' })
     vim.keymap.set('n', '<F10>', dap.step_over, { desc = 'Debug: Step Over' })
     vim.keymap.set('n', '<leader>b', persistent_breakpoints_api.toggle_breakpoint, { desc = 'Debug: Toggle [B]reakpoint' })
     vim.keymap.set('n', '<leader>B', persistent_breakpoints_api.set_conditional_breakpoint, { desc = 'Debug: Toggle Conditional [B]reakpoint' })
@@ -567,112 +677,154 @@ return {
     end, { desc = 'DAP REPL history (Telescope)' })
 
     vim.keymap.set('n', '<space>?', function()
-      require('dapui').eval(nil, { enter = true })
+      require('dap.ui.widgets').hover(nil, { border = 'rounded' })
     end, { desc = 'Debug: show value in floating box' })
+
+    vim.keymap.set('n', '<leader>dw', dap_view.add_expr, { desc = 'Debug: Add to [W]atch list' })
+    vim.keymap.set('x', '<leader>dw', dap_view.add_expr, { desc = 'Debug: Add selection to [W]atch list' })
 
     vim.keymap.set('x', '<leader>ss', function()
       local lines = vim.fn.getregion(vim.fn.getpos '.', vim.fn.getpos 'v')
-      ensure_dap_repl_visible()
-      dap.repl.execute(table.concat(lines, '\n'))
+      local code = table.concat(lines, '\n')
+      -- Execute the code - dap.repl.execute will open the REPL if needed
+      vim.schedule(function()
+        pcall(dap_view.open)
+        vim.defer_fn(function()
+          dap.repl.execute(code)
+        end, 50)
+      end)
     end, { desc = 'Debug: [S]end [S]election to REPL' })
 
     vim.keymap.set('n', '<leader>gt', function()
       dap.goto_()
     end, { desc = 'Debug: [G]o [T]o cursor' })
 
-    -- Dap UI setup
-    -- For more information, see |:help nvim-dap-ui|
-    dapui.setup {
-      -- Set icons to characters that are more likely to work in every terminal.
-      --    Feel free to remove or use ones that you like more! :)
-      --    Don't feel like these are good choices.
-      icons = { expanded = '▾', collapsed = '▸', current_frame = '*' },
-      controls = {
-        icons = {
-          pause = '󰏤',
-          play = '▶',
-          step_into = '',
-          step_over = '',
-          step_out = '',
-          step_back = '',
-          run_last = '',
-          terminate = '',
-          disconnect = '⏏',
-        },
-      },
-      layouts = {
-        {
-          elements = {
-            { id = 'scopes', size = 0.25 },
-            'breakpoints',
-            'stacks',
-            'watches',
-          },
-          size = 40,
-          position = 'left',
-        },
-        {
-          elements = {
-            { id = 'repl', size = 1.0 },
-          },
-          size = 25,
-          position = 'bottom',
-        },
-      },
-    }
-
-    -- Remove line numbers from DAP UI windows. Some panes re-enable them, so guard on multiple events.
-    local function strip_dapui_numbers(win)
-      pcall(vim.api.nvim_win_set_option, win, 'statuscolumn', ' ')
-      pcall(vim.api.nvim_win_set_option, win, 'number', false)
-      pcall(vim.api.nvim_win_set_option, win, 'relativenumber', false)
-    end
-    local dapui_filetypes = {
-      dapui_scopes = true,
-      dapui_breakpoints = true,
-      dapui_stacks = true,
-      dapui_watches = true,
-      dapui_console = true,
-      dapui_repl = true,
-      ['dap-repl'] = true,
-      dapui_hover = true,
-    }
-
-    vim.api.nvim_create_autocmd({ 'FileType', 'BufWinEnter', 'WinEnter', 'TermEnter' }, {
-      callback = function(args)
-        local ft = vim.bo[args.buf].filetype
-        if not dapui_filetypes[ft] and not vim.b[args.buf].dap_repl then
-          return
-        end
-
-        for _, win in ipairs(vim.fn.win_findbuf(args.buf)) do
-          strip_dapui_numbers(win)
-        end
-      end,
-    })
-
-    vim.api.nvim_create_autocmd('FileType', {
-      pattern = { 'dap-repl', 'dapui_repl' },
-      callback = function(args)
-        set_repl_python_filetype(args.buf)
-      end,
-    })
-
-    pcall(vim.treesitter.language.register, 'python', 'dap-repl')
-    pcall(vim.treesitter.language.register, 'python', 'dap_repl')
-    pcall(vim.treesitter.language.register, 'python', 'dapui_repl')
-
     -- Toggle to see last session result. Without this, you can't see session output in case of unhandled exception.
-    vim.keymap.set('n', '<F7>', dapui.toggle, { desc = 'Debug: See last session result.' })
+    vim.keymap.set('n', '<F7>', dap_view.toggle, { desc = 'Debug: See last session result.' })
 
-    dap.listeners.after.event_initialized['dapui_config'] = function()
-      dapui.open { reset = true }
-      apply_python_repl_highlight()
+    local function setup_repl_highlights(session)
+      if not session then
+        return
+      end
+      -- Find the REPL buffer
+      for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_is_loaded(bufnr) and vim.bo[bufnr].filetype == 'dap-repl' then
+          local lang = session.config and session.config.repl_lang
+          if not lang then
+            local ok, ts_lang = pcall(vim.treesitter.language.get_lang, session.filetype or '')
+            if ok and ts_lang then
+              lang = ts_lang
+            end
+          end
+          -- Fallback to python for python adapter
+          if not lang and session.config and session.config.type == 'python' then
+            lang = 'python'
+          end
+          if lang then
+            require('nvim-dap-repl-highlights').setup_injections(bufnr, lang)
+            -- Force parse with injections to trigger highlighting
+            local hl = vim.treesitter.highlighter.active[bufnr]
+            if hl and hl.tree then
+              hl.tree:parse(true)
+            end
+          end
+        end
+      end
     end
+
+    dap.listeners.after.event_initialized['dap_view_config'] = function(session)
+      dap_view.open()
+      -- Setup REPL highlights after a delay to ensure buffer is ready
+      vim.defer_fn(function()
+        setup_repl_highlights(session)
+      end, 200)
+    end
+
+    -- Also setup highlights when switching to REPL section (in case it wasn't ready earlier)
+    vim.api.nvim_create_autocmd('FileType', {
+      pattern = 'dap-repl',
+      callback = function()
+        vim.defer_fn(function()
+          local session = dap.session()
+          if session then
+            setup_repl_highlights(session)
+          end
+        end, 100)
+      end,
+    })
+
+    -- Manual trigger for REPL syntax highlighting (for debugging)
+    vim.keymap.set('n', '<leader>dr', function()
+      local buf = vim.api.nvim_get_current_buf()
+      local ft = vim.bo[buf].filetype
+
+      if ft ~= 'dap-repl' then
+        vim.notify('Not in a dap-repl buffer!', vim.log.levels.WARN)
+        return
+      end
+
+      -- Use the plugin's setup_highlights function
+      require('nvim-dap-repl-highlights').setup_highlights('python', buf)
+
+      -- Force parse with injections and redraw
+      local hl = vim.treesitter.highlighter.active[buf]
+      if hl and hl.tree then
+        hl.tree:parse(true)
+        vim.cmd 'redraw!'
+        vim.notify('REPL highlights applied', vim.log.levels.INFO)
+      else
+        vim.notify('Highlighter not active', vim.log.levels.WARN)
+      end
+    end, { desc = 'Debug: [R]efresh REPL highlights' })
 
     -- Install golang specific config
     -- require('dap-go').setup()
     require('dap-python').setup 'uv'
     require('dap-python').test_runner = 'pytest'
+
+    -- Custom REPL command to pretty-print objects without duplication
+    local repl = require 'dap.repl'
+    repl.commands = vim.tbl_extend('force', repl.commands, {
+      custom_commands = {
+        ['.p'] = function(expr)
+          if not expr or expr:match '^%s*$' then
+            repl.append 'Usage: .p <expression>'
+            return
+          end
+          local wrapped = '__import__("pprint").pprint(' .. expr .. ')'
+          repl.execute(wrapped, { context = 'repl', silent = true })
+        end,
+      },
+    })
+
+    -- Override on_output to deduplicate debugpy's duplicate output
+    -- debugpy sends both an evaluate response AND an output event for the same content
+    local recent_output = {}
+    dap.defaults.fallback.on_output = function(session, body)
+      if body.category == 'telemetry' then
+        return
+      end
+
+      local output = body.output
+      if not output then
+        return
+      end
+
+      -- Check if we've seen this exact output very recently (within 100ms)
+      local now = vim.uv.now()
+      if recent_output[output] and (now - recent_output[output]) < 100 then
+        return -- Skip duplicate
+      end
+      recent_output[output] = now
+
+      -- Clean old entries periodically to avoid memory buildup
+      for k, v in pairs(recent_output) do
+        if now - v > 1000 then
+          recent_output[k] = nil
+        end
+      end
+
+      repl.append(output, '$', { newline = false })
+    end
   end,
 }
