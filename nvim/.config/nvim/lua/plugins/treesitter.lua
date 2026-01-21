@@ -9,7 +9,7 @@ return { -- Highlight, edit, and navigate code
         require('treesitter-context').setup {
           enable = true,
           multiwindow = false,
-          max_lines = 0,
+          max_lines = 2,
           min_window_height = 0,
           line_numbers = true,
           multiline_threshold = 1,
@@ -29,7 +29,9 @@ return { -- Highlight, edit, and navigate code
     require('nvim-dap-repl-highlights').setup()
 
     -- nvim-treesitter main branch setup
-    require('nvim-treesitter').setup {}
+    require('nvim-treesitter').setup {
+      install_dir = vim.fn.stdpath 'data' .. '/site',
+    }
 
     -- Install parsers (main branch API)
     local parsers_to_install = {
@@ -66,10 +68,11 @@ return { -- Highlight, edit, and navigate code
     vim.api.nvim_create_autocmd('User', {
       pattern = 'VeryLazy',
       callback = function()
-        local installed = require('nvim-treesitter.config').get_installed 'parsers'
+        -- Check installed parsers by looking for .so files in parser directories
         local installed_set = {}
-        for _, p in ipairs(installed) do
-          installed_set[p] = true
+        for _, dir in ipairs(vim.api.nvim_get_runtime_file('parser/*.so', true)) do
+          local parser_name = vim.fn.fnamemodify(dir, ':t:r')
+          installed_set[parser_name] = true
         end
         local to_install = {}
         for _, p in ipairs(parsers_to_install) do
