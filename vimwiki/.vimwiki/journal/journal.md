@@ -137,8 +137,22 @@
   - [ ] why is the account synthetic-bcd202511306-01 rolling from stage 3 to stage 1. Default should
         be an absorbing state.
 
+# 2026-01-09 - 2026-01-16
 
-# 2026-01-09
+- tying loose ends on Recognise Bank stress forecast implementation
+- brief demo of the stress forecast solution to Recognise Bank team
+- training session on ECL navigator stress forecast to Recognise Bank team
+
+# 2015-01-19
+
+- [x] fixing bug in complex waterfall chart in ECL navigator
+- [x] meeting to prep for sale demo for ECL navigator
+
+# 2026-01-20
+
+- [x] fix little bugs in ECL Navigator
+- [x] prepare for ECL Navigator demo with potential client
+
+# 2026-01-21
 
 - [ ] Todo item
-
