@@ -49,12 +49,15 @@ vim.diagnostic.enable()
 vim.opt.spell = true -- Enable spell checking
 
 -- Configure before vimwiki loads
-local terminalGroup = vim.api.nvim_create_augroup('UserTerminalSpell', { clear = true })
+local terminalGroup = vim.api.nvim_create_augroup('UserTerminal', { clear = true })
 vim.api.nvim_create_autocmd('TermOpen', {
   group = terminalGroup,
   pattern = '*',
   callback = function()
     vim.opt_local.spell = false
+    vim.opt_local.number = false
+    vim.opt_local.relativenumber = false
+    vim.opt_local.statuscolumn = ''
   end,
 })
 
