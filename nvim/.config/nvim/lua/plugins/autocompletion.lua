@@ -44,6 +44,9 @@ return { -- Autocompletion
     local luasnip = require 'luasnip'
     luasnip.config.setup {}
 
+    -- Load custom snippets
+    require 'snippets.sql'
+
     local kind_icons = {
       Text = '󰉿',
       Method = 'm',
