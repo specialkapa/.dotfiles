@@ -1,66 +1,54 @@
 local function patch_semshi_node()
   local node_path = vim.fn.stdpath 'data' .. '/lazy/semshi/rplugin/python3/semshi/node.py'
   if vim.fn.filereadable(node_path) ~= 1 then
-    return
+    return false
   end
 
   local lines = vim.fn.readfile(node_path)
   local text = table.concat(lines, '\n')
-  if text:find('elif self%.symbol is None') and text:find('if self%.symbol is None:%s+return None') then
-    return
+
+  -- Check if already patched
+  if text:find 'self%.symbol = None%s+# PATCHED' then
+    return true
   end
 
-  local original = [[        if hl_group == ATTRIBUTE:
-            self.symbol = None
-        else:
-            try:
-                self.symbol = self.env[-1].lookup(self.symname)
-            except KeyError:
-                # Set dummy hl group, so all fields in __repr__ are defined.
-                self.hl_group = '?'
-                raise Exception('%s can\'t lookup "%s"' % (self, self.symname))
-        if hl_group is not None:
-            self.hl_group = hl_group
-        else:
-            self.hl_group = self._make_hl_group()
-]]
-  local replacement = [[        if hl_group == ATTRIBUTE:
-            self.symbol = None
-        else:
-            try:
-                self.symbol = self.env[-1].lookup(self.symname)
-            except KeyError:
-                self.symbol = None
-        if hl_group is not None:
-            self.hl_group = hl_group
-        elif self.symbol is None:
-            self.hl_group = UNRESOLVED
-        else:
-            self.hl_group = self._make_hl_group()
-]]
-
-  local updated, count = text:gsub(original, replacement, 1)
-  if count ~= 1 then
-    return
+  -- Check if file has the problematic code we need to patch
+  if not text:find "raise Exception%('%%s can\\'t lookup" then
+    return false
   end
 
-  local original_base = [[        if self.hl_group == ATTRIBUTE:
-            return self.env[-1]
-        if self.symbol.is_global():
-]]
-  local replacement_base = [[        if self.hl_group == ATTRIBUTE:
-            return self.env[-1]
-        if self.symbol is None:
-            return None
-        if self.symbol.is_global():
-]]
+  -- Patch 1: Handle KeyError gracefully instead of raising exception
+  local patched = text:gsub(
+    "except KeyError:\n(%s+)# Set dummy hl group, so all fields in __repr__ are defined%.\n%s+self%.hl_group = '%?'\n%s+raise Exception%('%%s can\\'t lookup \"%%s\"' %% %(self, self%.symname%)%)",
+    'except KeyError:\n%1self.symbol = None  # PATCHED: gracefully handle Python 3.11+ symtable changes'
+  )
 
-  updated, count = updated:gsub(original_base, replacement_base, 1)
-  if count ~= 1 then
-    return
+  if patched == text then
+    -- Try alternative pattern (might have different whitespace)
+    patched = text:gsub(
+      "(except KeyError:.-raise Exception%('%%s can\\'t lookup \"%%s\"' %% %(self, self%.symname%)%))",
+      'except KeyError:\n                self.symbol = None  # PATCHED: gracefully handle Python 3.11+ symtable changes'
+    )
   end
 
-  vim.fn.writefile(vim.split(updated, '\n', { plain = true }), node_path)
+  if patched == text then
+    return false
+  end
+
+  -- Patch 2: Handle None symbol in _make_hl_group selection
+  patched = patched:gsub(
+    '(if hl_group is not None:\n%s+self%.hl_group = hl_group\n%s+)(else:\n%s+self%.hl_group = self%._make_hl_group%(%))',
+    '%1elif self.symbol is None:\n            self.hl_group = UNRESOLVED\n        %2'
+  )
+
+  -- Patch 3: Handle None symbol in base_table method
+  patched = patched:gsub(
+    "(def base_table%(self%).-if self%.hl_group == ATTRIBUTE:\n%s+return self%.env%[%-1%]\n%s+)(if self%.symbol%.is_global)",
+    '%1if self.symbol is None:\n            return None\n        %2'
+  )
+
+  vim.fn.writefile(vim.split(patched, '\n', { plain = true }), node_path)
+  return true
 end
 
 return {
@@ -145,6 +133,11 @@ return {
       patch_semshi_node()
     end,
     config = function()
+      -- Ensure patch is applied (in case plugin was updated)
+      if patch_semshi_node() then
+        vim.cmd 'UpdateRemotePlugins'
+      end
+
       vim.g['semshi#active'] = 1
       vim.g['semshi#always_update_all_highlights'] = 1
       vim.g['semshi#excluded_hl_groups'] = { 'imported' }
