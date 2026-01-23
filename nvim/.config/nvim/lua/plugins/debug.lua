@@ -64,46 +64,14 @@ return {
         sections = { 'repl', 'breakpoints', 'watches', 'scopes', 'exceptions', 'threads' },
         default_section = 'repl',
         base_sections = {
-          breakpoints = {
-            keymap = 'b',
-            label = '[b]reakpoints',
-            short_label = ' [b]',
-          },
-          scopes = {
-            keymap = 's',
-            label = '[s]copes',
-            short_label = '󰂥 [s]',
-          },
-          exceptions = {
-            keymap = 'e',
-            label = '[e]xceptions',
-            short_label = '󰢃 [e]',
-          },
-          watches = {
-            keymap = 'w',
-            label = '[w]atches',
-            short_label = '󰛐 [w]',
-          },
-          threads = {
-            keymap = 't',
-            label = '[t]hreads',
-            short_label = '󱉯 [t]',
-          },
-          repl = {
-            keymap = 'r',
-            label = '[r]EPL',
-            short_label = '󰯃 [r]',
-          },
-          sessions = {
-            keymap = 'k',
-            label = 'Sessions',
-            short_label = ' [k]',
-          },
-          console = {
-            keymap = 'c',
-            label = '[c]onsole',
-            short_label = '󰆍 [c]',
-          },
+          breakpoints = { keymap = 'B', label = 'breakpoints' },
+          scopes = { keymap = 'S', label = 'scopes' },
+          exceptions = { keymap = 'e', label = 'exceptions' },
+          watches = { keymap = 'W', label = 'watches' },
+          threads = { keymap = 'T', label = 'threads' },
+          repl = { keymap = 'R', label = 'REPL' },
+          sessions = { keymap = 'K', label = 'sessions' },
+          console = { keymap = 'C', label = 'console' },
         },
         custom_sections = {},
         controls = {
@@ -792,7 +760,19 @@ return {
             return
           end
           local wrapped = '__import__("pprint").pprint(' .. expr .. ')'
-          repl.execute(wrapped, { context = 'repl', silent = true })
+          -- Execute directly via session, bypassing repl.execute to avoid history pollution
+          local session = dap.session()
+          if not session then
+            repl.append 'No active debug session'
+            return
+          end
+          session:evaluate({ expression = wrapped, context = 'repl' }, function(err, resp)
+            if err then
+              repl.append(tostring(err), nil, { newline = true })
+            elseif resp and resp.result then
+              repl.append(resp.result, nil, { newline = true })
+            end
+          end)
         end,
       },
     })
