@@ -220,6 +220,7 @@ install_with_brew bat
 install_with_brew stow
 install_with_brew codex
 install_with_brew tabview
+install_with_apt postgresql-client
 
 if ! command_exists "atuin"; then
     echo "$package is not installed. Installing now."
