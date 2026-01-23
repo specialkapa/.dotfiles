@@ -81,6 +81,10 @@ return {
           enabled = true,
           indentscope_color = '',
         },
+        navic = {
+          enabled = true,
+          custom_bg = 'NONE', -- "lualine" will set background to mantle
+        },
         -- For more plugins integrations please scroll down (https://github.com/catppuccin/nvim#integrations)
       },
     }

@@ -100,6 +100,11 @@ return {
             vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf })
           end, '[T]oggle Inlay [H]ints')
         end
+
+        -- Attach nvim-navic for breadcrumbs/code context
+        if client and client.server_capabilities.documentSymbolProvider then
+          require('nvim-navic').attach(client, event.buf)
+        end
       end,
     })
 

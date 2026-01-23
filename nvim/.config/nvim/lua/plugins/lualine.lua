@@ -1,7 +1,58 @@
 return {
   'nvim-lualine/lualine.nvim',
   event = 'VeryLazy',
-  dependencies = { 'f-person/git-blame.nvim' },
+  dependencies = {
+    'f-person/git-blame.nvim',
+    {
+      'SmiteshP/nvim-navic',
+      dependencies = 'neovim/nvim-lspconfig',
+      opts = {
+        icons = {
+          File = '󰈙 ',
+          Module = ' ',
+          Namespace = '󰌗 ',
+          Package = ' ',
+          Class = '󰌗 ',
+          Method = '󰆧 ',
+          Property = ' ',
+          Field = ' ',
+          Constructor = ' ',
+          Enum = ' ',
+          Interface = '󰕘',
+          Function = '󰊕 ',
+          Variable = '󰆧 ',
+          Constant = '󰏿 ',
+          String = '󰀬 ',
+          Number = '󰎠 ',
+          Boolean = '󰨙 ',
+          Array = '󰅪 ',
+          Object = '󰅩 ',
+          Key = '󰌋 ',
+          Null = '󰟢 ',
+          EnumMember = ' 󰅪 ',
+          Struct = '󰅩 ',
+          Event = ' ',
+          Operator = '󰆕 ',
+          TypeParameter = '󰊄 ',
+          enabled = true,
+        },
+        lsp = {
+          auto_attach = false,
+          preference = nil,
+        },
+        highlight = true,
+        separator = '  ',
+        depth_limit = 0,
+        depth_limit_indicator = '..',
+        safe_output = true,
+        lazy_update_context = false,
+        click = false,
+        format_text = function(text)
+          return text
+        end,
+      },
+    },
+  },
   config = function()
     local mode = {
       'mode',
@@ -55,14 +106,20 @@ return {
         -- https://www.nerdfonts.com/cheat-sheet
         --        
         section_separators = { left = '', right = '' },
-        component_separators = { left = ' ', right = '' },
+        component_separators = { left = '', right = '' },
         disabled_filetypes = { 'alpha', 'neo-tree' },
         always_divide_middle = true,
       },
       sections = {
         lualine_a = { mode },
         lualine_b = { 'branch' },
-        lualine_c = { filename },
+        lualine_c = {
+          filename,
+          {
+            'navic',
+            color_correction = 'dynamic',
+          },
+        },
         lualine_x = {
           is_recording,
           diff,
