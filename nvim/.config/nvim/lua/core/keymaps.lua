@@ -217,3 +217,8 @@ vim.keymap.set('n', '<leader>yp', function()
   vim.fn.setreg('+', vim.fn.expand '%:p')
   print('Copied: ' .. vim.fn.expand '%:p')
 end, { desc = '[Y]ank absolute [P]ath' })
+
+-- Open URL under cursor
+vim.keymap.set('n', 'gX', function()
+  require('utils.url').open_url_under_cursor()
+end, with_desc 'Open URL under cursor')

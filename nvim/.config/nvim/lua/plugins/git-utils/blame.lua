@@ -1,5 +1,7 @@
 local M = {}
 
+local url_utils = require 'utils.url'
+
 local function wrap_text(text, max_width)
   if not text or text == '' then
     return { '' }
@@ -47,36 +49,6 @@ local function trim(value)
     return ''
   end
   return (value:gsub('\r', '')):gsub('^%s+', ''):gsub('%s+$', '')
-end
-
-local function is_wsl()
-  local uname = trim(vim.fn.system { 'uname', '-a' })
-  return uname:match 'WSL2' ~= nil
-end
-
-local function open_url_in_browser(url)
-  if not url or url == '' then
-    return
-  end
-
-  local open_cmd
-  if is_wsl() then
-    open_cmd = { 'cmd.exe', '/C', 'start', '', url }
-  elseif vim.fn.has 'mac' == 1 or vim.fn.has 'macunix' == 1 then
-    open_cmd = { 'open', url }
-  elseif vim.fn.has 'win32' == 1 or vim.fn.has 'win64' == 1 then
-    open_cmd = { 'cmd.exe', '/C', 'start', '', url }
-  else
-    open_cmd = { 'xdg-open', url }
-  end
-
-  local job = vim.fn.jobstart(open_cmd, { detach = true })
-  if job <= 0 then
-    vim.notify('Failed to launch browser for commit URL', vim.log.levels.ERROR)
-    return
-  end
-
-  vim.notify('Opening commit in browser...', vim.log.levels.INFO)
 end
 
 local url_highlight_ns = vim.api.nvim_create_namespace 'GitBlameFloatURL'
@@ -243,7 +215,7 @@ local function open_float_window(content, opts)
       noremap = true,
       silent = true,
       callback = function()
-        open_url_in_browser(web_url)
+        url_utils.open_url_in_browser(web_url)
       end,
     })
   end
