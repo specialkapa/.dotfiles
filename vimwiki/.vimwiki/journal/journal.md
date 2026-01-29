@@ -134,7 +134,7 @@
 
 - [x] Recognise Bank stress forecast
   - [x] debug balance scaling
-  - [ ] why is the account synthetic-bcd202511306-01 rolling from stage 3 to stage 1. Default should
+  - [x] why is the account synthetic-bcd202511306-01 rolling from stage 3 to stage 1. Default should
         be an absorbing state.
 
 # 2026-01-09 - 2026-01-16
@@ -155,4 +155,35 @@
 
 # 2026-01-21
 
-- [ ] Todo item
+- [x] ECL Navigator demo with EmirateNBD (note that this went very well)
+- [x] further improvement in the stress forecast UI for Recognise Bank.
+- [x] deploy stress forecast solution for Recognise Bank UAT environment.
+
+# 2026-01-22
+
+- [x] join agentic workflow training session.
+- [x] further improvement in the stress forecast UI for Recognise Bank.
+
+# 2026-01-23
+
+- [x] make sure changes made to ECL Navigator are backwards compatible and that Bank Dhofar
+      implementation is not broken.
+
+# 2026-01-26
+
+- [x] debug Recognise Bank stress forecast deployment issues.
+
+# 2026-01-27
+
+- [x] implement fixes in stress forecast logic and improve execution time
+- [x] provide support to Recognise Bank for audit query regarding a challenger risk grade scale
+
+# 2026-01-28
+
+- [x] compose stress forecast technical documentation for Recognise Bank
+
+# 2026-01-29
+
+- [x] make sure that stage 2 accounts always roll back into stage 1 on the next month
+- [x] ensure the accrual of missed interest on defaulted exposures is correctly implemented
+- [ ] investigate why pipeline exposures are set to 0 in the straight ECL run for Recognise Bank
