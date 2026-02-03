@@ -233,6 +233,115 @@ return {
     local last_python_program
     local forced_python_program
 
+    -- Offline fallback configuration for uv-based Python debugging
+    -- When uv run hangs due to no internet, automatically retry with --offline flag
+    local offline_fallback_enabled = true -- Enable/disable the fallback mechanism
+    local offline_fallback_timeout_ms = 3000 -- How long to wait before assuming adapter is stuck
+    local connectivity_check_timeout_ms = 500 -- Timeout for internet connectivity check
+    local connectivity_check_host = '8.8.8.8' -- Host to check for connectivity
+    local connectivity_check_port = 53 -- Port to check (DNS)
+
+    -- State tracking for offline fallback
+    local is_offline_retry = false -- Prevents infinite retry loops
+    local adapter_timeout_timer = nil -- Timer handle for timeout detection
+    local pending_adapter_config = nil -- Store config for retry
+    local is_handling_offline_fallback = false -- Prevents nvim-dap warnings during retry
+
+    --- Check internet connectivity by attempting TCP connection
+    --- @param callback fun(has_internet: boolean)
+    local function check_internet_connectivity(callback)
+      local tcp = vim.uv.new_tcp()
+      local connected = false
+      local timer = vim.uv.new_timer()
+
+      local function cleanup()
+        if timer and not timer:is_closing() then
+          timer:stop()
+          timer:close()
+        end
+        if tcp and not tcp:is_closing() then
+          tcp:close()
+        end
+      end
+
+      -- Timeout handler
+      timer:start(connectivity_check_timeout_ms, 0, function()
+        if not connected then
+          cleanup()
+          vim.schedule(function()
+            callback(false)
+          end)
+        end
+      end)
+
+      -- Attempt connection
+      tcp:connect(connectivity_check_host, connectivity_check_port, function(err)
+        if connected then
+          return
+        end -- Already handled by timeout
+        connected = true
+        cleanup()
+        vim.schedule(function()
+          callback(err == nil)
+        end)
+      end)
+    end
+
+    --- Cancel the adapter timeout timer if running
+    local function cancel_adapter_timeout()
+      if adapter_timeout_timer and not adapter_timeout_timer:is_closing() then
+        adapter_timeout_timer:stop()
+        adapter_timeout_timer:close()
+      end
+      adapter_timeout_timer = nil
+    end
+
+    --- Handle adapter startup timeout - check connectivity and retry if offline
+    local function handle_adapter_timeout()
+      cancel_adapter_timeout()
+
+      -- Check if session actually started (maybe just slow)
+      local session = dap.session()
+      if session and session.initialized then
+        return -- Session started, false alarm
+      end
+
+      -- Set flag to suppress nvim-dap's own timeout warning during our handling
+      is_handling_offline_fallback = true
+
+      check_internet_connectivity(function(has_internet)
+        if has_internet then
+          -- Internet is available, problem is something else
+          is_handling_offline_fallback = false
+          vim.notify(' Debug adapter failed to start (not a connectivity issue)', vim.log.levels.WARN)
+        else
+          -- No internet - terminate and retry with --offline
+          vim.notify('󰖪 No internet detected, retrying with offline mode...', vim.log.levels.INFO)
+
+          -- Terminate current stuck session if any
+          -- Use pcall since session might be in a bad state
+          pcall(function()
+            local current_session = dap.session()
+            if current_session then
+              -- Force close the session to kill the stuck process
+              current_session:close()
+            end
+          end)
+
+          -- Schedule retry with frozen flag
+          vim.defer_fn(function()
+            is_offline_retry = true
+            is_handling_offline_fallback = false
+            if pending_adapter_config then
+              dap.run(pending_adapter_config)
+            else
+              dap.run_last()
+            end
+          end, 200) -- Slightly longer delay to ensure cleanup
+        end
+      end)
+    end
+
     local function current_file_path()
       local name = vim.api.nvim_buf_get_name(0)
       if name and name ~= '' then
@@ -749,6 +858,76 @@ return {
     -- require('dap-go').setup()
     require('dap-python').setup 'uv'
     require('dap-python').test_runner = 'pytest'
+
+    -- Wrap the Python adapter for offline fallback support
+    if offline_fallback_enabled then
+      local original_python_adapter = dap.adapters.python
+
+      dap.adapters.python = function(callback, config)
+        -- Store config for potential retry
+        pending_adapter_config = vim.deepcopy(config)
+
+        -- Wrap the callback to intercept adapter configuration
+        local wrapped_callback = function(adapter)
+          -- Modify args if this is a frozen retry
+          if is_offline_retry and adapter.type == 'executable' and adapter.args then
+            -- Check if this is a uv adapter (first arg would be "run")
+            if adapter.args[1] == 'run' then
+              -- Insert --offline after "run" to disable network access
+              local new_args = { 'run', '--offline' }
+              for i = 2, #adapter.args do
+                table.insert(new_args, adapter.args[i])
+              end
+              adapter.args = new_args
+            end
+          end
+
+          -- Start timeout timer only for non-frozen attempts
+          if not is_offline_retry then
+            cancel_adapter_timeout() -- Cancel any existing timer
+            adapter_timeout_timer = vim.uv.new_timer()
+            adapter_timeout_timer:start(offline_fallback_timeout_ms, 0, function()
+              vim.schedule(handle_adapter_timeout)
+            end)
+          end
+
+          callback(adapter)
+        end
+
+        -- Call original adapter function with wrapped callback
+        if type(original_python_adapter) == 'function' then
+          original_python_adapter(wrapped_callback, config)
+        else
+          -- If adapter is a table (not a function), just use it directly
+          wrapped_callback(original_python_adapter)
+        end
+      end
+
+      -- Also wrap debugpy adapter (dap-python sets both)
+      dap.adapters.debugpy = dap.adapters.python
+
+      -- Reset offline fallback state on successful initialization
+      dap.listeners.after.event_initialized['offline_fallback'] = function()
+        cancel_adapter_timeout()
+        is_offline_retry = false
+        is_handling_offline_fallback = false
+        pending_adapter_config = nil
+      end
+
+      -- Clean up offline fallback state on session end
+      dap.listeners.before.event_terminated['offline_fallback'] = function()
+        cancel_adapter_timeout()
+        is_handling_offline_fallback = false
+        pending_adapter_config = nil
+        -- Note: Don't reset is_offline_retry here, it resets on successful init
+      end
+
+      dap.listeners.before.disconnect['offline_fallback'] = function()
+        cancel_adapter_timeout()
+        is_handling_offline_fallback = false
+        pending_adapter_config = nil
+      end
+    end
 
     -- Custom REPL command to pretty-print objects without duplication
     local repl = require 'dap.repl'
