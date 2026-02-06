@@ -186,4 +186,38 @@
 
 - [x] make sure that stage 2 accounts always roll back into stage 1 on the next month
 - [x] ensure the accrual of missed interest on defaulted exposures is correctly implemented
-- [ ] investigate why pipeline exposures are set to 0 in the straight ECL run for Recognise Bank
+- [x] investigate why pipeline exposures are set to 0 in the straight ECL run for Recognise Bank
+
+# 2026-01-30
+
+- [x] fix logic big where accounts as of the first reporting date roll into stage 2. This should not
+      happen as it this point the stage state has already materialised.
+- [x] fix logic bug where stage 3 accounts ECL is significantly underestimated.
+
+# 2026-02-02
+
+- [ ] investigate evolution of book balance (back + front) in comparison to the Recognise Bank
+      forecast inputs.
+  - [x] fix bug in the logic that determines the number of synthetic originations per date. It
+        underestimates the total front book opening balance.
+  - [ ] the difference on the CRE F, CRE V, CRE V EA and Other Business, Development Finance and
+        Professional Finance segment stills remains unmatched!
+    - [x] The Development Finance forecast handed by Recognise Bank does not seem to take
+          amortisation into account at all.
+- [x] investigate why balance as of first forecast date is almost double what Recognise Bank
+      provided. _Turns out Recognise Bank gave usincorrect numbers initially._
+
+# 2026-02-03
+
+- [x] merge stress forecast changes on main branch.
+- [x] resolve conflicts with main branch. - [x] test calculations for Bank Dhofar work still as
+      expected.
+- [x] test the UI still works as expected.
+- [x] respond to Recognise Bank regarding model validation finding.
+- [x] sync bitbucket Gateshouse Bank bitbucket with latest changes made on github repo.
+
+
+# 2026-02-05
+
+- [ ] Todo item
+
