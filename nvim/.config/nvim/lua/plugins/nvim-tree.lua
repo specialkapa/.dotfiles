@@ -155,7 +155,7 @@ return {
             folder_arrow = true,
             git = true,
             modified = true,
-            hidden = false,
+            hidden = true,
             diagnostics = true,
             bookmarks = true,
           },
@@ -234,7 +234,7 @@ return {
       },
       filters = {
         enable = true,
-        git_ignored = true,
+        git_ignored = false,
         dotfiles = false,
         git_clean = false,
         no_buffer = false,
