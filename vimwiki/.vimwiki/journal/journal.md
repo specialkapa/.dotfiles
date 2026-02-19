@@ -216,8 +216,14 @@
 - [x] respond to Recognise Bank regarding model validation finding.
 - [x] sync bitbucket Gateshouse Bank bitbucket with latest changes made on github repo.
 
+# 2026-02-04 - 2026-02-19
 
-# 2026-02-05
-
-- [ ] Todo item
-
+- [x] conduct Ronan's performance review.
+- [x] provided support to GHB for audit queries.
+- [x] finished the process documentation for ECL navigator for Recognise Bank.
+- [x] supervising Keshav on the migration of the ECL navigator data models to v3 under a new domain
+      driven design structure.
+- [x] catching up with v3 repository; learning the artitecture, spining up applications, reading
+      docs etc.
+- [x] updated documentation of the v3 monorepo give the flaws I found in while setting it up on my
+      local machine.
