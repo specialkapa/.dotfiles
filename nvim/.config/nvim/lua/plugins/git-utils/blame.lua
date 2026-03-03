@@ -287,7 +287,13 @@ function M.show_git_blame_float()
   local current_line = vim.fn.line '.'
   local file_path = vim.fn.expand '%:p'
 
-  local blame_cmd = string.format('git blame -L %d,%d --porcelain %s', current_line, current_line, file_path)
+  local git_root = get_git_root_for_path(file_path)
+  if not git_root then
+    vim.notify('Not in a git repository', vim.log.levels.ERROR)
+    return
+  end
+
+  local blame_cmd = string.format('git -C %s blame -L %d,%d --porcelain -- %s', vim.fn.shellescape(git_root), current_line, current_line, vim.fn.shellescape(file_path))
   local blame_output = vim.fn.system(blame_cmd)
 
   if vim.v.shell_error ~= 0 then
@@ -309,7 +315,7 @@ function M.show_git_blame_float()
     return
   end
 
-  local commit_stat_cmd = string.format('git show --stat %s', commit_hash)
+  local commit_stat_cmd = string.format('git -C %s show --stat %s', vim.fn.shellescape(git_root), commit_hash)
   local commit_stat = vim.fn.system(commit_stat_cmd)
 
   if vim.v.shell_error ~= 0 then
@@ -317,7 +323,7 @@ function M.show_git_blame_float()
     return
   end
 
-  local commit_info_cmd = string.format('git show --no-patch --format="%%an|%%ae|%%ad|%%s" --date=format:"%%Y-%%m-%%d %%H:%%M:%%S" %s', commit_hash)
+  local commit_info_cmd = string.format('git -C %s show --no-patch --format="%%an|%%ae|%%ad|%%s" --date=format:"%%Y-%%m-%%d %%H:%%M:%%S" %s', vim.fn.shellescape(git_root), commit_hash)
   local commit_info = vim.fn.system(commit_info_cmd)
 
   if vim.v.shell_error ~= 0 then
@@ -342,7 +348,7 @@ function M.show_git_blame_float()
     end
   end
 
-  local remote_url_cmd = 'git config --get remote.origin.url'
+  local remote_url_cmd = string.format('git -C %s config --get remote.origin.url', vim.fn.shellescape(git_root))
   local remote_url = vim.fn.system(remote_url_cmd):gsub('\n', '')
 
   local web_url = ''
@@ -355,6 +361,11 @@ function M.show_git_blame_float()
     local repo_path = remote_url:match 'gitlab.com[:/](.+)%.git$' or remote_url:match 'gitlab.com[:/](.+)$'
     if repo_path then
       web_url = string.format('https://gitlab.com/%s/-/commit/%s', repo_path, commit_hash)
+    end
+  elseif remote_url:match 'bitbucket.org' then
+    local repo_path = remote_url:match 'bitbucket.org[:/](.+)%.git$' or remote_url:match 'bitbucket.org[:/](.+)$'
+    if repo_path then
+      web_url = string.format('https://bitbucket.org/%s/commits/%s', repo_path, commit_hash)
     end
   end
 
