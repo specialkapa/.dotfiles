@@ -60,6 +60,13 @@ local function extract_url(text)
     end
   end
 
+  -- Check for GitHub-style plugin shorthand (owner/repo)
+  -- Matches patterns like: folke/which-key.nvim, nvim-treesitter/nvim-treesitter, tpope/vim-sleuth
+  local owner, repo = text:match '^([%w%-_%.]+)/([%w%-_%.]+)$'
+  if owner and repo then
+    return 'https://github.com/' .. owner .. '/' .. repo
+  end
+
   return nil
 end
 
