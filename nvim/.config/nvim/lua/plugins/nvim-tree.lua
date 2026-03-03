@@ -15,7 +15,7 @@ local function on_attach(bufnr)
 
   -- custom mappings
   vim.keymap.set('n', '?', api.tree.toggle_help, opts 'Help')
-  vim.keymap.set('n', '<CR>', api.node.open.tab_drop, opts 'Tab drop')
+  vim.keymap.set('n', '<CR>', api.node.open.edit, opts 'Open')
 end
 
 local function setup_pymple_integration()
