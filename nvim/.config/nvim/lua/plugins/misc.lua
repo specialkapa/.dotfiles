@@ -233,25 +233,6 @@ return {
     end,
   },
   {
-    'zhisme/copy_with_context.nvim',
-    config = function()
-      require('copy_with_context').setup {
-        -- Customize mappings
-        mappings = {
-          relative = '<leader>yc',
-          absolute = '<leader>Yc',
-          remote = '<leader>cr',
-        },
-        formats = {
-          default = '# {filepath}:{line}', -- Used by relative and absolute mappings
-          remote = '# {remote_url}',
-        },
-        -- whether to trim lines or not
-        trim_lines = false,
-      }
-    end,
-  },
-  {
     'Mr-LLLLL/cool-chunk.nvim',
     event = { 'CursorHold', 'CursorHoldI' },
     dependencies = {
@@ -311,5 +292,11 @@ return {
         },
       }
     end,
+  },
+  {
+    'GCBallesteros/jupytext.nvim',
+    config = true,
+    -- Depending on your nvim distro or config you may need to make the loading not lazy
+    -- lazy=false,
   },
 }
