@@ -211,7 +211,7 @@ install_cargo_package git-graph
 install_if_not_exists ripgrep rg
 install_if_not_exists fzf
 install_if_not_exists fd-find fd
-install_if_not_exists eza
+install_with_cargo eza
 install_with_brew lazygit
 install_with_brew lazydocker
 install_if_not_exists neovim nvim
@@ -256,9 +256,4 @@ git config --global delta.hyperlinks true
 git config --global merge.conflictStyle zdiff3
 git config --global autocrlf input
 
-if [ ! -d "$HOME/.config" ]; then
-    mkdir "$HOME/.config"
-fi
 
-cd "$HOME/.config"
-git clone git@github.com:specialkapa/nvim-config.git nvim
