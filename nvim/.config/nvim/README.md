@@ -9,7 +9,7 @@ This is my `neovim` config. On a machine without `neovim` just run the
 
 ```bash
 cd $HOME
-curl -fsSL https://raw.githubusercontent.com/specialkapa/nvim-config/main/script/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/specialkapa/nvim-config/main/scripts/install.sh | bash
 ```
 
 > [!IMPORTANT]
