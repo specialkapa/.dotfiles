@@ -227,3 +227,24 @@
       docs etc.
 - [x] updated documentation of the v3 monorepo give the flaws I found in while setting it up on my
       local machine.
+
+# 2026-02-20 - 2026-03-13
+
+- [x] continuous troubleshooting with Recognise Bank stress forecast outputs.
+- [x] continoou support to GHB for audit queries.
+- [x] catch ups with Keshav / mentoring / reviewing PRs.
+- [x] Spinning up all new new tools and raising issues in the setup guides.
+- [x] catch up with Vegan to understand credit beacon and give my feedback and direction.
+- [x] tidying up claude files.
+- [x] optimising `sqeel`'s test suite; decoupling unit from integration tests.
+- [x] adding `async` `postgres` support in `sqeel`
+- [x] migrated all data models from v2 monorepo to v3 monorepo ECL navigator domain.
+  - [x] adding using tests and regression tests
+  - [x] using more modern syntax for type annotation.
+  - [x] leveraging `advanced_alchemy` for the base model and using custom audit columns.
+- [x] updating python database utilities common package so that it is compatible with more
+      `postgres` setup types.
+- [x] updating python database utilities common package to remove dependency on private methods to
+      reduce the risk of breaking changes.
+- [x] open issue on `model-watch-api` to improve the design of by using a strategy pattern of the
+      data uploader parsers.

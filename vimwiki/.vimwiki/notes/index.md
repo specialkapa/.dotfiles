@@ -53,3 +53,14 @@ forecast date as a reference point.
         the have to stay on book beyond the forecast horizon.
 - [x] **FIXED**. Seems like the value in _date_ column for some irregular accounts is not months
       end.
+
+# credit beacon
+
+`beacon` is an internal credit rating and risk assessment tool. Allows clients to create scorecards,
+score clients and allocate into risk grades.
+
+replaces ad-hoc scoring tools, spreadsheets and email chains.
+
+_"Beacon is a modern, web-based credit rating platform that replaces manual, spreadsheet-driven
+assessment processes with a structured, auditable, and configurable workflow -- from data ingestion
+through to signed-off rating reports."\*_
