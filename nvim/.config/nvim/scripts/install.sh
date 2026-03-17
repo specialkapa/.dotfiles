@@ -224,7 +224,7 @@ install_with_brew btop
 install_with_apt postgresql-client
 
 if ! command_exists "atuin"; then
-    echo "$package is not installed. Installing now."
+    echo "atuin is not installed. Installing now."
     curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
     source $HOME/.bashrc
     if command_exists "atuin"; then
