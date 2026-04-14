@@ -293,13 +293,14 @@ function M.show_git_blame_float()
     return
   end
 
-  local blame_cmd = string.format('git -C %s blame -L %d,%d --porcelain -- %s', vim.fn.shellescape(git_root), current_line, current_line, vim.fn.shellescape(file_path))
+  local blame_cmd =
+    string.format('git -C %s blame -L %d,%d --porcelain -- %s', vim.fn.shellescape(git_root), current_line, current_line, vim.fn.shellescape(file_path))
   local blame_output = vim.fn.system(blame_cmd)
 
   if vim.v.shell_error ~= 0 then
     if blame_output:match 'fatal: no such path' then
       local help_text = "Press 'q' or <Esc> to close"
-      open_float_window({ string.format(' %s is still cooking!', file_path) }, { help_text = help_text })
+      open_float_window({ string.format('󰙚 %s is still cooking!', vim.fn.fnamemodify(file_path, ':t:r')) }, { help_text = help_text })
       return
     end
 
@@ -323,7 +324,11 @@ function M.show_git_blame_float()
     return
   end
 
-  local commit_info_cmd = string.format('git -C %s show --no-patch --format="%%an|%%ae|%%ad|%%s" --date=format:"%%Y-%%m-%%d %%H:%%M:%%S" %s', vim.fn.shellescape(git_root), commit_hash)
+  local commit_info_cmd = string.format(
+    'git -C %s show --no-patch --format="%%an|%%ae|%%ad|%%s" --date=format:"%%Y-%%m-%%d %%H:%%M:%%S" %s',
+    vim.fn.shellescape(git_root),
+    commit_hash
+  )
   local commit_info = vim.fn.system(commit_info_cmd)
 
   if vim.v.shell_error ~= 0 then
