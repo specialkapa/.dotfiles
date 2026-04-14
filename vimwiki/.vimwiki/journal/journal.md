@@ -248,3 +248,17 @@
       reduce the risk of breaking changes.
 - [x] open issue on `model-watch-api` to improve the design of by using a strategy pattern of the
       data uploader parsers.
+
+# 2026-03-13 - 2026-04-13
+
+- [x] continuous support to Recognise Bank stress forecast outputs.
+- [x] continuous support to GHB for audit queries.
+- [x] catch ups with Keshav / mentoring / reviewing PRs.
+  - [x] api testing PRs
+  - facility data validation prorotype
+- [x] ECL navigator model configuration wizard front end development.
+- [x] AI working group slide deck
+- [x] ECL navigator demo slide deck
+- [x] review SEQ PR
+- [x] arrange Gavin to talk to Afrexim bank to recommend TNP.
+- [x] review credit beacon marketing slide deck.
