@@ -105,6 +105,25 @@ return {
         if client and client.server_capabilities.documentSymbolProvider then
           require('nvim-navic').attach(client, event.buf)
         end
+
+        -- Go: format on save via gopls
+        if client and client.name == 'gopls' and client:supports_method(vim.lsp.protocol.Methods.textDocument_formatting) then
+          local format_augroup = vim.api.nvim_create_augroup('kickstart-lsp-format', { clear = false })
+          vim.api.nvim_clear_autocmds { group = format_augroup, buffer = event.buf }
+          vim.api.nvim_create_autocmd('BufWritePre', {
+            group = format_augroup,
+            buffer = event.buf,
+            callback = function()
+              vim.lsp.buf.format {
+                async = false,
+                bufnr = event.buf,
+                filter = function(format_client)
+                  return format_client.id == client.id
+                end,
+              }
+            end,
+          })
+        end
       end,
     })
 
@@ -151,6 +170,20 @@ return {
       jsonls = {},
       yamlls = {},
       bashls = {},
+      gopls = {
+        settings = {
+          gopls = {
+            analyses = {
+              unusedparams = true,
+              shadow = true,
+            },
+            staticcheck = true,
+            gofumpt = true,
+            usePlaceholders = true,
+            completeUnimported = true,
+          },
+        },
+      },
       just = {},
       lua_ls = {
         settings = {

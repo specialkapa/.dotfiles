@@ -21,6 +21,7 @@ return {
         'eslint_d', -- ts/js linter
         'shfmt', -- Shell formatter
         'checkmake', -- linter for Makefiles
+        'golangci_lint', -- Go linter
         'stylua', -- lua formatter; Already installed via Mason
         'ruff', -- Python linter and formatter; Already installed via Mason
       },
@@ -39,6 +40,15 @@ return {
       require('none-ls.formatting.ruff').with { extra_args = { '--extend-select', 'I' } },
       require 'none-ls.formatting.ruff_format',
     }
+
+    if diagnostics.golangci_lint then
+      table.insert(sources, diagnostics.golangci_lint)
+    else
+      local ok, golangci = pcall(require, 'none-ls.diagnostics.golangci_lint')
+      if ok then
+        table.insert(sources, golangci)
+      end
+    end
 
     local augroup = vim.api.nvim_create_augroup('LspFormatting', {})
     null_ls.setup {
@@ -186,6 +196,9 @@ return {
               end
             end,
           })
+        elseif filetype == 'go' then
+          -- Go formatting is handled by gopls in lua/plugins/lsp.lua
+          return
         else
           vim.api.nvim_create_autocmd('BufWritePre', {
             group = augroup,

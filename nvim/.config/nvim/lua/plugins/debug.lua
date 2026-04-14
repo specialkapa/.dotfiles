@@ -391,6 +391,15 @@ return {
           end,
         },
       },
+      go = {
+        {
+          -- Must be "go" or it will be ignored by the plugin
+          type = 'go',
+          name = 'Attach remote',
+          mode = 'remote',
+          request = 'attach',
+        },
+      },
     }
 
     local function ensure_dap_repl_visible()
@@ -855,7 +864,20 @@ return {
     end, { desc = 'Debug: [R]efresh REPL highlights' })
 
     -- Install golang specific config
-    -- require('dap-go').setup()
+    require('dap-go').setup {
+      delve = {
+        path = vim.fn.exepath 'dlv' ~= '' and vim.fn.exepath 'dlv' or vim.fn.expand '~/go/bin/dlv',
+        initialize_timeout_sec = 20,
+        port = '${port}',
+        args = {},
+        build_flags = {},
+        detached = true,
+        cwd = nil,
+      },
+      tests = {
+        verbose = false,
+      },
+    }
     require('dap-python').setup 'uv'
     require('dap-python').test_runner = 'pytest'
 
