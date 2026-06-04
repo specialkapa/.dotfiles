@@ -9,7 +9,6 @@ return {
     -- adapters
     'nvim-neotest/neotest-python',
     'nvim-neotest/neotest-plenary',
-    'nvim-neotest/neotest-vim-test',
   },
   config = function()
     local neotest = require 'neotest'
@@ -41,15 +40,11 @@ return {
       adapters = {
         require 'neotest-python' {
           dap = { justMyCode = false },
+          args = { '--log-level', 'DEBUG', '-vvv' },
+          runner = 'pytest',
+          python = '.venv/bin/python',
         },
-        args = { '--log-level', 'DEBUG', '-vvv' },
-        runner = 'pytest',
-        python = '.venv/bin/python',
-
         require 'neotest-plenary',
-        require 'neotest-vim-test' {
-          ignore_file_types = { 'python', 'vim', 'lua' },
-        },
       },
     }
 
