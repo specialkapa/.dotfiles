@@ -222,3 +222,8 @@ end, { desc = '[Y]ank absolute [P]ath' })
 vim.keymap.set('n', 'gX', function()
   require('utils.url').open_url_under_cursor()
 end, with_desc 'Open URL under cursor')
+
+-- json2struct: fetch JSON from a URL and insert Go structs at cursor
+vim.keymap.set('n', '<leader>js', function()
+  require('utils.json2struct').open_form()
+end, with_desc '[J]son → Go [S]truct from URL')
