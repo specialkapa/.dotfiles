@@ -32,3 +32,9 @@ stow oh-my-posh
 stow opencode
 sto btop
 ```
+
+# TODO
+
+- [ ] `golangci-cli` is installed
+- [ ] ensure `sqlc` is installed
+- [ ] ensure `goose` is installed

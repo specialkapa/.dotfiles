@@ -63,4 +63,34 @@ replaces ad-hoc scoring tools, spreadsheets and email chains.
 
 _"Beacon is a modern, web-based credit rating platform that replaces manual, spreadsheet-driven
 assessment processes with a structured, auditable, and configurable workflow -- from data ingestion
-through to signed-off rating reports."\*_
+through to signed-off rating reports."_
+
+# migration to v3
+
+- Aliz
+- FMB
+- OAB
+
+Let's do those all at the same time.
+
+FMB is still using v1 version on windows. That requires updates every month on probation file. Every
+month they have more and more files. They want to update their monthly runs. We need to integration
+to their internal source system.
+
+For the rest of the clients their region breakdown is across 5 regions.
+
+They seem to not want to interract with the frontend but they have not see the ECL navigator yet so
+we do not know.
+
+They main difference in their engine is the LGD logic. It is a collateral approach. It breaks down
+between 3 LGDs. Cost of cure, cost of restructure, recovery rate. There is different collateral.
+types.
+
+A single account can have multiple collaterals. There is secured portion and unsecure portion LGD.
+
+There is time since default structure to the unsecured portion.
+
+4-6 weeks development + configuration.
+
+deployment + uat testing for FMB should be fine as we already have the FMB call report. (4-6 weeks)
+weeks deployment to prod should be a couple of days.
