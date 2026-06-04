@@ -255,5 +255,3 @@ git config --global delta.line-numbers true
 git config --global delta.hyperlinks true
 git config --global merge.conflictStyle zdiff3
 git config --global autocrlf input
-
-
