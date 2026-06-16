@@ -221,6 +221,9 @@ install_with_brew stow
 install_with_brew codex
 install_with_brew tabview
 install_with_brew btop
+install_with_brew gh
+source $HOME/.bashrc
+gh extension install dlvhdr/gh-dash
 install_with_apt postgresql-client
 
 if ! command_exists "atuin"; then

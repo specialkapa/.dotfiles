@@ -30,7 +30,8 @@ stow vim
 stow vimwiki
 stow oh-my-posh
 stow opencode
-sto btop
+stow btop
+stow gh-dash
 ```
 
 # TODO
