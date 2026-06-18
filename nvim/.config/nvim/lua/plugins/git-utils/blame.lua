@@ -1,6 +1,8 @@
 local M = {}
 
 local url_utils = require 'utils.url'
+local trim = require('utils.str').trim
+local ui = require 'utils.ui'
 
 local function wrap_text(text, max_width)
   if not text or text == '' then
@@ -42,13 +44,6 @@ local function wrap_text(text, max_width)
   end
 
   return lines
-end
-
-local function trim(value)
-  if not value then
-    return ''
-  end
-  return (value:gsub('\r', '')):gsub('^%s+', ''):gsub('%s+$', '')
 end
 
 local url_highlight_ns = vim.api.nvim_create_namespace 'GitBlameFloatURL'
@@ -138,7 +133,10 @@ end
 
 local function ensure_url_highlight_group()
   if vim.fn.hlexists 'GitBlameURL' == 0 then
-    vim.api.nvim_set_hl(0, 'GitBlameURL', { fg = '#61afef', underline = true })
+    -- follow the theme's underlined/link color instead of hardcoding blue
+    if not ui.link_first('GitBlameURL', { '@markup.link.url', 'Underlined', 'DiagnosticInfo' }) then
+      vim.api.nvim_set_hl(0, 'GitBlameURL', { underline = true })
+    end
   end
 end
 
@@ -176,7 +174,7 @@ local function open_float_window(content, opts)
   local buf = vim.api.nvim_create_buf(false, true)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
 
-  local border_chars = { '╭', '─', '╮', '│', '╯', '─', '╰', '│' }
+  local border_chars = ui.BORDER
 
   local base_opts = {
     relative = 'cursor',

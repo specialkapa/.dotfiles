@@ -1,11 +1,6 @@
 local M = {}
 
-local function trim(value)
-  if not value then
-    return ''
-  end
-  return (value:gsub('\r', '')):gsub('^%s+', ''):gsub('%s+$', '')
-end
+local trim = require('utils.str').trim
 
 local function is_wsl()
   local uname = trim(vim.fn.system { 'uname', '-a' })

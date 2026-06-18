@@ -16,18 +16,8 @@ local hl_ns = vim.api.nvim_create_namespace 'GitChangeHistogram'
 -- the next commit invalidates it.)
 local cache = {}
 
-local function trim(value)
-  if not value then
-    return ''
-  end
-  return (value:gsub('\r', '')):gsub('^%s+', ''):gsub('%s+$', '')
-end
-
-local function ensure_hl(name, opts)
-  if vim.fn.hlexists(name) == 0 then
-    vim.api.nvim_set_hl(0, name, opts)
-  end
-end
+local trim = require('utils.str').trim
+local ui = require 'utils.ui'
 
 -- Run git asynchronously (off the UI thread). cb(code, stdout, stderr) runs in a
 -- fast event context: further run_git/pure-Lua is fine, but editor API must be
@@ -182,11 +172,12 @@ local function render(root, origin_win, data)
   -- everything on a data row except the file column (so file width = total - fixed)
   local fixed_w = left_width + div_w + div_w + BAR_W + 1 + lines_w
 
-  ensure_hl('GitChangeHistHeat1', { fg = '#56b6c2' }) -- coolest
-  ensure_hl('GitChangeHistHeat2', { fg = '#98c379' })
-  ensure_hl('GitChangeHistHeat3', { fg = '#e5c07b' })
-  ensure_hl('GitChangeHistHeat4', { fg = '#d19a66' })
-  ensure_hl('GitChangeHistHeat5', { fg = '#e06c75' }) -- hottest
+  -- cool→hot gradient mapped onto the theme's semantic palette (no hardcoded hex)
+  ui.link_first('GitChangeHistHeat1', { 'DiagnosticHint', 'Function', 'Special' }) -- coolest
+  ui.link_first('GitChangeHistHeat2', { 'DiagnosticOk', 'String', 'Added' })
+  ui.link_first('GitChangeHistHeat3', { 'DiagnosticWarn', 'WarningMsg' })
+  ui.link_first('GitChangeHistHeat4', { 'Constant', 'Number', '@number' })
+  ui.link_first('GitChangeHistHeat5', { 'DiagnosticError', 'ErrorMsg', 'Removed' }) -- hottest
 
   local line_to_path = {} -- line number -> path; layout is stable so this is constant
 
@@ -307,7 +298,7 @@ local function render(root, origin_win, data)
     row = math.floor((ui_h - win_h) / 2 - 1),
     col = math.floor((ui_w - win_w) / 2),
     style = 'minimal',
-    border = { '╭', '─', '╮', '│', '╯', '─', '╰', '│' },
+    border = ui.BORDER,
     title = {
       -- reuse the git blame float title colors for a consistent look
       { ' 󰊢 ', 'GitBlameFloatTitleIcon' },
