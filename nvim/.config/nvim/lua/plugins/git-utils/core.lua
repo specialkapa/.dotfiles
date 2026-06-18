@@ -46,6 +46,10 @@ return {
       vim.keymap.set('n', '<leader>gb', function()
         require('plugins.git-utils.blame').show_git_blame_float()
       end, { desc = '[G]it [B]lame floating window' })
+      -- Add keymap for the change-frequency histogram floating window
+      vim.keymap.set('n', '<leader>gh', function()
+        require('plugins.git-utils.change-histogram').show_change_histogram()
+      end, { desc = '[G]it change [H]istogram' })
     end,
   },
   {
