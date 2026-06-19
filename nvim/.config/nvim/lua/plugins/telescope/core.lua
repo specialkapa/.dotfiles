@@ -203,6 +203,9 @@ return {
     vim.keymap.set('n', '<leader>fd', ' :Telescope find_files cwd=', { desc = 'Search in directory' })
     vim.keymap.set('n', '<leader>fb', ' :Telescope file_browser<CR>', { desc = '[F]ile [B]rowser' })
     vim.keymap.set('n', '<leader>gs', builtin.git_status, { desc = '[G]it changed files ([S]tatus)' })
+    vim.keymap.set('n', '<leader>g/', function()
+      require('plugins.telescope.hunk_picker').pick()
+    end, { desc = '[G]it hunks [/] in current buffer' })
 
     vim.keymap.set('n', '<leader>/', function()
       builtin.current_buffer_fuzzy_find {
