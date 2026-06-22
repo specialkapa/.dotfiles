@@ -144,22 +144,10 @@ return {
     local servers = {
       ts_ls = {},
       ruff = {},
-      pylsp = {
-        settings = {
-          pylsp = {
-            plugins = {
-              pyflakes = { enabled = false },
-              pycodestyle = { enabled = false },
-              autopep8 = { enabled = false },
-              yapf = { enabled = false },
-              mccabe = { enabled = false },
-              pylsp_mypy = { enabled = false },
-              pylsp_black = { enabled = false },
-              pylsp_isort = { enabled = false },
-            },
-          },
-        },
-      },
+      -- Astral's `ty` type checker (preview). Pairs with ruff (lint/format) for a
+      -- single-vendor, Rust-native Python toolchain. Replaces pylsp/jedi, which did
+      -- no real type checking. nvim-lspconfig ships the default `ty server` config.
+      ty = {},
       clangd = {},
       html = { filetypes = { 'html', 'twig', 'hbs' } },
       cssls = {},
