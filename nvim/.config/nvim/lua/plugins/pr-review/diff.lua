@@ -13,6 +13,41 @@ local M = {}
 
 local ns = vim.api.nvim_create_namespace 'PrReviewComments'
 
+-- Per-window highlight namespaces for the diff colors. Native vimdiff paints a buffer's
+-- *exclusive* lines with DiffAdd on BOTH sides, so a single global override would colour
+-- removed lines green too. Instead each side gets its own namespace: the base (old) side
+-- reds, the head (new) side greens. nvim_win_set_hl_ns falls back to the global theme for
+-- every group we don't define, so non-diff regions keep the active colorscheme.
+local diff_ns_base = vim.api.nvim_create_namespace 'PrReviewDiffBase'
+local diff_ns_head = vim.api.nvim_create_namespace 'PrReviewDiffHead'
+
+-- Diff colours lifted from the Claude Code CLI diff previews (dark + light variants).
+local CC_DARK = {
+  add = '#225c2b', add_dim = '#47584a', add_word = '#38a660', -- additions: line / dimmed / changed-word
+  rem = '#7a2936', rem_dim = '#69484d', rem_word = '#b3596b', -- removals:  line / dimmed / changed-word
+}
+local CC_LIGHT = {
+  add = '#69db7c', add_dim = '#c7e1cb', add_word = '#2f9d44',
+  rem = '#ffa8b4', rem_dim = '#fdd2d8', rem_word = '#d1454b',
+}
+
+-- Define the Diff* groups inside the two per-window namespaces. Only `bg` is set so the
+-- theme's syntax-highlight foreground still shows through the coloured lines; the filler
+-- placeholders (DiffDelete) hide their `-` dashes by matching fg to bg for a clean band.
+local function setup_diff_colors()
+  local P = vim.o.background == 'light' and CC_LIGHT or CC_DARK
+  -- head (new) side: greens
+  vim.api.nvim_set_hl(diff_ns_head, 'DiffAdd', { bg = P.add })
+  vim.api.nvim_set_hl(diff_ns_head, 'DiffChange', { bg = P.add_dim })
+  vim.api.nvim_set_hl(diff_ns_head, 'DiffText', { bg = P.add_word })
+  vim.api.nvim_set_hl(diff_ns_head, 'DiffDelete', { bg = P.rem_dim, fg = P.rem_dim })
+  -- base (old) side: reds
+  vim.api.nvim_set_hl(diff_ns_base, 'DiffAdd', { bg = P.rem })
+  vim.api.nvim_set_hl(diff_ns_base, 'DiffChange', { bg = P.rem_dim })
+  vim.api.nvim_set_hl(diff_ns_base, 'DiffText', { bg = P.rem_word })
+  vim.api.nvim_set_hl(diff_ns_base, 'DiffDelete', { bg = P.add_dim, fg = P.add_dim })
+end
+
 local ASTRONAUT = ''
 local MAXW = 72 -- cap on the inner text width of a comment box
 
@@ -66,7 +101,8 @@ local function setup_highlights()
   else
     ui.link_first('PrReviewModeCheckout', { 'PmenuSel', 'Visual' })
   end
-  -- diff colors themselves are left to the active theme's Diff* groups (no override)
+  -- diff line colours match the Claude Code CLI previews, scoped per-window (see below)
+  setup_diff_colors()
 end
 
 -- Foldtext for the unchanged regions native diff folds away. Exposed globally so the
@@ -277,8 +313,10 @@ local function buf_setup(buf, lines, ft, name)
   pcall(vim.api.nvim_buf_set_name, buf, name)
 end
 
--- Enable native diff + folding of unchanged regions on a diff window.
-local function setup_diff_window(win)
+-- Enable native diff + folding of unchanged regions on a diff window, and apply the
+-- side-specific diff-colour namespace so additions read green / removals red.
+local function setup_diff_window(win, hl_ns)
+  vim.api.nvim_win_set_hl_ns(win, hl_ns)
   vim.api.nvim_win_call(win, function()
     vim.cmd 'diffthis'
     vim.opt_local.foldmethod = 'diff'
@@ -405,8 +443,8 @@ function M.show_file(data)
     ranges = M.parse_patch(data.file.patch),
   }
 
-  setup_diff_window(view.left_win)
-  setup_diff_window(view.right_win)
+  setup_diff_window(view.left_win, diff_ns_base)
+  setup_diff_window(view.right_win, diff_ns_head)
 
   -- mode indicator + context, scoped to the review windows (gone when the tab closes)
   if data.winbar_head then

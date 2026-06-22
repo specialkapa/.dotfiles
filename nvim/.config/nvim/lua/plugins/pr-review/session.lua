@@ -913,6 +913,9 @@ function M.checkout(pr)
   if diff.is_open() then
     diff.close()
   end
+  -- capture cwd now (main loop); resolve_repo runs later inside a vim.system callback
+  -- where vim.fn.getcwd() is not allowed
+  local cwd = vim.fn.getcwd()
 
   gh.is_dirty(function(dirty)
     if dirty then
@@ -936,7 +939,7 @@ function M.checkout(pr)
               notify('Checkout failed: ' .. (err or '?'), vim.log.levels.ERROR)
             end)
           end
-          gh.resolve_repo(nil, function(repo, rerr)
+          gh.resolve_repo(cwd, function(repo, rerr)
             if not repo then
               return vim.schedule(function()
                 notify('Could not resolve repo: ' .. (rerr or '?'), vim.log.levels.ERROR)
