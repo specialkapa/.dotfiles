@@ -29,6 +29,7 @@ require('lazy').setup {
   require 'plugins.git-utils.core',
   require 'plugins.pr-review.core',
   require 'plugins.lazydocker',
+  require 'plugins.docker.core',
   require 'plugins.toggleterm',
   require 'plugins.neotest',
   require 'plugins.debug',
