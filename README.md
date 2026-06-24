@@ -32,7 +32,34 @@ stow oh-my-posh
 stow opencode
 stow btop
 stow gh-dash
+stow wezterm
+stow fastfetch
 ```
+
+# wezterm (Windows + WSL)
+
+WezTerm runs as a **Windows** app, so it does not read its config from WSL the normal way. The real
+config is version-controlled here at [wezterm.lua](./wezterm/.config/wezterm/wezterm.lua), and a
+small Windows-side loader at _C:\Users\<username>\.wezterm.lua_ dotfiles it over
+_\\wsl.localhost\Ubuntu\..._ and registers it for hot-reload (see the header of that file for the
+contract). One-time Windows setup on a fresh machine:
+
+## prerequisites
+
+1. `winget install wez.wezterm`
+2. Install **FiraCode Nerd Font** on Windows (`winget install --id ryanoasis.nerd-fonts.firacode`,
+   or drop the `.ttf`s and "Install for all users"). Installing it inside WSL does nothing for
+   rendering.
+3. Generate the Windows-side loader (detects the Windows home and distro automatically, backs up any
+   existing `.wezterm.lua` once):
+
+   ```bash
+   ./wezterm/install-windows-loader.sh
+   ```
+
+   Re-run it after moving the repo or switching distros. Older Windows builds use the `\\wsl$\`
+   mount instead of `\\wsl.localhost\`; swap it in the generated loader if WezTerm can't find the
+   config.
 
 # TODO
 

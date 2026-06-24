@@ -142,6 +142,27 @@ install_if_not_exists() {
     fi
 }
 
+#------------------------------------------------------------------------------
+# On WSL, append an OSC 7 cwd reporter to ~/.bashrc so WezTerm learns the working
+# directory (tab titles + new tabs/splits inheriting the cwd). Idempotent: guards
+# on a sentinel so re-runs don't duplicate it. Uses a quoted heredoc so nothing
+# inside (\033, $PWD, PROMPT_COMMAND) is expanded as it's written.
+#------------------------------------------------------------------------------
+ensure_osc7() {
+    grep -qiE '(microsoft|wsl)' /proc/version 2>/dev/null || return 0
+    if grep -q '__wezterm_osc7' "$HOME/.bashrc" 2>/dev/null; then
+        show_warning "OSC 7 cwd reporting already present in .bashrc."
+        return 0
+    fi
+    cat >>"$HOME/.bashrc" <<'EOF'
+
+# Report cwd to the terminal (OSC 7) for WezTerm tab titles + cwd inheritance.
+__wezterm_osc7() { printf '\033]7;file://%s%s\033\\' "$HOSTNAME" "$PWD"; }
+PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND$'\n'}__wezterm_osc7"
+EOF
+    show_success "OSC 7 cwd reporting added to .bashrc"
+}
+
 cd "$HOME"
 
 if command_exists nvim; then
@@ -211,7 +232,7 @@ install_cargo_package git-graph
 install_if_not_exists ripgrep rg
 install_if_not_exists fzf
 install_if_not_exists fd-find fd
-install_with_cargo eza
+install_cargo_package eza
 install_with_brew lazygit
 install_with_brew lazydocker
 install_if_not_exists neovim nvim
@@ -221,6 +242,7 @@ install_with_brew stow
 install_with_brew codex
 install_with_brew tabview
 install_with_brew btop
+install_with_brew fastfetch
 install_with_brew gh
 source $HOME/.bashrc
 gh extension install dlvhdr/gh-dash
@@ -248,6 +270,7 @@ if command_exists apt-get; then
     sudo apt install -y lua5.1 luarocks build-essential curl
 elif command_exists pacman; then
     sudo pacman -S lua51 luarocks base-devel curl
+fi
 
 git config --global core.pager delta
 git config --global interactive.diffFilter 'delta --color-only'
@@ -258,3 +281,5 @@ git config --global delta.line-numbers true
 git config --global delta.hyperlinks true
 git config --global merge.conflictStyle zdiff3
 git config --global autocrlf input
+
+ensure_osc7
