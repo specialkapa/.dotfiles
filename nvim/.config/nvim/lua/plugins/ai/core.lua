@@ -75,7 +75,73 @@ return {
   {
     'coder/claudecode.nvim',
     dependencies = { 'folke/snacks.nvim' },
-    config = true,
+    opts = {
+      terminal = {
+        snacks_win_opts = {
+          -- Remap the terminal window's Normal/NormalNC to a custom group so the
+          -- Claude split has a lighter background than the editor.
+          wo = {
+            winhighlight = 'Normal:ClaudeNormal,NormalNC:ClaudeNormal',
+          },
+        },
+      },
+    },
+    config = function(_, opts)
+      require('claudecode').setup(opts)
+
+      -- Tie the split's background to Catppuccin's `surface0` — the theme's
+      -- "elevated surface" shade (lighter than the editor's `base` in mocha).
+      -- Resolved from the live palette so it tracks the auto latte/mocha switch.
+      local function set_hl()
+        local ok, palettes = pcall(require, 'catppuccin.palettes')
+        if not ok then
+          return
+        end
+        vim.api.nvim_set_hl(0, 'ClaudeNormal', { bg = palettes.get_palette().surface0 })
+      end
+      set_hl()
+      -- Custom groups are cleared on colorscheme load, so re-apply after one.
+      vim.api.nvim_create_autocmd('ColorScheme', { callback = set_hl })
+
+      -- Auto-insert on focus + <Esc> to leave terminal-insert mode, scoped to the
+      -- Claude split. claudecode runs on a snacks terminal, so it doesn't pick up
+      -- the toggleterm-only mappings in core/keymaps.lua. We identify it by the
+      -- terminal buffer name (the `claude` CLI shows up in the `term://` name);
+      -- opencode/codex terminals don't match, so they're left untouched.
+      local claudeTermGroup = vim.api.nvim_create_augroup('UserClaudeTerminal', { clear = true })
+
+      local function is_claude_terminal(buf)
+        return vim.api.nvim_buf_is_valid(buf)
+          and vim.bo[buf].buftype == 'terminal'
+          and vim.api.nvim_buf_get_name(buf):lower():match 'claude' ~= nil
+      end
+
+      -- <Esc> drops to terminal-normal mode (so you can visual-select Claude's
+      -- output), mirroring the toggleterm behaviour. Set buffer-locally on open.
+      vim.api.nvim_create_autocmd('TermOpen', {
+        group = claudeTermGroup,
+        callback = function(args)
+          if is_claude_terminal(args.buf) then
+            vim.keymap.set('t', '<esc>', [[<C-\><C-n>]], { buffer = args.buf, silent = true })
+          end
+        end,
+      })
+
+      -- Drop into insert (terminal) mode whenever the Claude split gains focus.
+      -- Only fires on *entry*, so pressing <Esc> afterwards leaves you in
+      -- terminal-normal mode until you switch away and come back.
+      vim.api.nvim_create_autocmd({ 'BufWinEnter', 'WinEnter' }, {
+        group = claudeTermGroup,
+        callback = function()
+          vim.schedule(function()
+            local buf = vim.api.nvim_get_current_buf()
+            if is_claude_terminal(buf) and vim.api.nvim_get_mode().mode ~= 't' then
+              vim.cmd 'startinsert'
+            end
+          end)
+        end,
+      })
+    end,
     -- `cmd` lets lazy.nvim create command stubs that load the plugin on first use,
     -- so `:ClaudeCode` and friends work on a fresh start. Without it, a keys-only
     -- spec defers loading until a <leader>a* mapping is pressed and the commands
@@ -136,8 +202,8 @@ return {
         -- Your configuration, if any — see `lua/opencode/config.lua`, or "goto definition".
       }
 
-      -- Required for `vim.g.opencode_opts.auto_reload`.
-      vim.o.autoread = true
+      -- `autoread` (required for `vim.g.opencode_opts.auto_reload`) is now set
+      -- globally in core/options.lua alongside the checktime safety net.
 
       -- Recommended/example keymaps.
       vim.keymap.set({ 'n', 'x' }, '<leader>oa', function()

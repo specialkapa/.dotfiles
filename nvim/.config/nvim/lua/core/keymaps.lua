@@ -144,6 +144,11 @@ vim.keymap.set('n', '<leader>gb', ':G blame<CR>', with_desc '[G]it [B]lame') -- 
 -- nvim-tree global
 vim.keymap.set('n', '<leader>e', ':NvimTreeToggle<cr>', with_desc '[T]oggle file tree')
 
+-- Force-reload the current buffer from disk, discarding local changes. For when an
+-- external tool (e.g. Claude Code) rewrote the file but the buffer is modified, so
+-- autoread/:checktime won't touch it.
+vim.keymap.set('n', '<leader>R', '<cmd>edit!<cr>', with_desc '[R]eload buffer from disk (discard local changes)')
+
 -- search and replace word under cursor (press n to go to next occurrence followed by . to replace all)
 vim.keymap.set('n', '<leader>j', [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]], with_desc 'Search and replace word under cursor')
 

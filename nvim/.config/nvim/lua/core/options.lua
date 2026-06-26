@@ -94,6 +94,32 @@ vim.api.nvim_create_autocmd('CursorHold', {
   end,
 })
 
+-- Reload buffers when their file changes on disk (e.g. an external tool like
+-- Claude Code writes the file). `autoread` only reloads when something triggers
+-- `:checktime`, so wire it to focus / buffer-enter / cursor-hold / leaving a
+-- terminal. Only unmodified buffers are auto-reloaded — a modified buffer is left
+-- alone (see the <leader>R force-reload mapping for that case).
+vim.opt.autoread = true
+local autoReadGroup = vim.api.nvim_create_augroup('UserAutoReadOnDiskChange', { clear = true })
+vim.api.nvim_create_autocmd({ 'FocusGained', 'BufEnter', 'CursorHold', 'CursorHoldI', 'TermLeave' }, {
+  group = autoReadGroup,
+  pattern = '*',
+  callback = function()
+    -- Skip the command-line window and special buffers (terminals, prompts, etc.)
+    if vim.fn.getcmdwintype() ~= '' or vim.bo.buftype ~= '' then
+      return
+    end
+    vim.cmd 'checktime'
+  end,
+})
+-- Surface the otherwise-silent reload so it's clear the buffer changed underneath.
+vim.api.nvim_create_autocmd('FileChangedShellPost', {
+  group = autoReadGroup,
+  callback = function()
+    vim.notify('Buffer reloaded (file changed on disk)', vim.log.levels.INFO)
+  end,
+})
+
 vim.diagnostic.config {
   virtual_text = false,
   float = {
