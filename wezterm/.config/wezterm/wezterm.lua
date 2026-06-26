@@ -12,8 +12,15 @@
 -- path either way.
 
 local wezterm = require("wezterm")
+local mux = wezterm.mux
 local act = wezterm.action
 local config = wezterm.config_builder()
+
+-- ── Startup: spawn a maximized window on launch ───────────────────────────────
+wezterm.on("gui-startup", function()
+	local tab, pane, window = mux.spawn_window({})
+	window:gui_window():maximize()
+end)
 
 -- tabline.wez: lualine-style tab bar + status line. Fetched from git on first
 -- run (WezTerm clones it into its plugin dir). Configured near the bottom.
