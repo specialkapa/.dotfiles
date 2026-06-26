@@ -222,6 +222,35 @@ local function mode_label(window)
 	return "NORMAL"
 end
 
+-- ── Mouse: Ctrl+click to open links (Windows-Terminal muscle memory) ─────────
+-- WezTerm's default opens links on a *plain* click; this adds Ctrl+click on top
+-- (defaults are kept, so plain-click still works too). The Ctrl+Down → Nop stops
+-- a selection from starting on the press so the click registers cleanly.
+config.mouse_bindings = {
+	{
+		event = { Up = { streak = 1, button = "Left" } },
+		mods = "CTRL",
+		action = act.OpenLinkAtMouseCursor,
+	},
+	{
+		event = { Down = { streak = 1, button = "Left" } },
+		mods = "CTRL",
+		action = act.Nop,
+	},
+}
+
+-- Open http(s) links ourselves. WezTerm's built-in opener fails from a WSL pane:
+-- with OSC 7 on, the pane's cwd is a \\wsl.localhost\... UNC path, which the OS
+-- open call rejects as a working directory, so links silently don't open. We hand
+-- the URL to Windows' FileProtocolHandler via rundll32 (cwd-independent), and
+-- return false to suppress the broken default. Other schemes use the default.
+wezterm.on("open-uri", function(_, _, uri)
+	if uri:match("^https?://") then
+		wezterm.background_child_process({ "rundll32.exe", "url.dll,FileProtocolHandler", uri })
+		return false
+	end
+end)
+
 -- Compact Catppuccin palette, adaptive to the OS light/dark setting, used to
 -- rebuild the pre-tabline look via theme_overrides below.
 local catppuccin = {
@@ -232,10 +261,13 @@ local catppuccin = {
 		surface1 = "#45475a",
 		subtext0 = "#a6adc8",
 		text = "#cdd6f4",
-		mauve = "#b16cf5",
+		mauve = "#c4a5fb",
 		peach = "#fab387",
-		violet = "#8b5cf6",
-		orchid = "#d0a3ff",
+		violet = "#a78bfa",
+		orchid = "#ddbcff",
+		red = "#f38ba8",
+		yellow = "#f9e2af",
+		green = "#a6e3a1",
 	},
 	latte = {
 		crust = "#dce0e8",
@@ -248,6 +280,9 @@ local catppuccin = {
 		peach = "#fe640b",
 		violet = "#6c43d9",
 		orchid = "#9d4edd",
+		red = "#d20f39",
+		yellow = "#df8e1d",
+		green = "#40a02b",
 	},
 }
 local p = wezterm.gui.get_appearance():find("Dark") and catppuccin.mocha or catppuccin.latte
@@ -265,6 +300,160 @@ local peach_section = {
 	b = { fg = p.peach, bg = p.surface0 },
 	c = { fg = p.text, bg = p.mantle },
 }
+
+-- Battery component coloured by charge level: red ≤20%, yellow ≤50%, green above
+-- (and green while charging). Custom function because the built-in battery
+-- component can't recolour per level. Returns FormatItems; empty on desktops.
+local function battery_status()
+	local info = wezterm.battery_info()
+	local b = info and info[1]
+	if not b then
+		return ""
+	end
+	local pct = math.floor((b.state_of_charge or 0) * 100 + 0.5)
+	local charging = (b.state == "Charging" or b.state == "Full")
+	local col = p.green
+	if not charging then
+		if pct <= 20 then
+			col = p.red
+		elseif pct <= 50 then
+			col = p.yellow
+		end
+	end
+	local glyph
+	if charging then
+		glyph = wezterm.nerdfonts.md_battery_charging
+	else
+		local tens = math.floor(pct / 10) * 10
+		if tens >= 100 then
+			glyph = wezterm.nerdfonts.md_battery
+		elseif tens <= 0 then
+			glyph = wezterm.nerdfonts.md_battery_alert_variant_outline
+		else
+			glyph = wezterm.nerdfonts["md_battery_" .. tens]
+		end
+	end
+	glyph = glyph or wezterm.nerdfonts.md_battery or ""
+	return wezterm.format({
+		{ Foreground = { Color = col } },
+		{ Text = glyph .. " " .. pct .. "% " },
+	})
+end
+
+-- Next Outlook calendar event, read from a cache file refreshed on shell startup
+-- (scripts/refresh-next-event.sh → %USERPROFILE%\.cache\wezterm-next-event). Just
+-- a file read + countdown — no process spawning in the render path. Reddens as
+-- the meeting nears. On a non-Windows host (where the Outlook/WSL pipeline can't
+-- run) it shows a muted "cal n/a" reminder so future-me knows to port it; with a
+-- host but no event/cache yet it renders nothing.
+local function next_event()
+	local home = os.getenv("USERPROFILE") -- Windows host home; nil off-Windows
+	if not home then
+		return wezterm.format({
+			{ Foreground = { Color = p.yellow } },
+			{ Text = (wezterm.nerdfonts.md_calendar_alert or "") .. " cal n/a" },
+		})
+	end
+	local ok, line = pcall(function()
+		local f = io.open(home .. "\\.cache\\wezterm-next-event", "r")
+		if not f then
+			return nil
+		end
+		local l = f:read("*l")
+		f:close()
+		return l
+	end)
+	if not ok or not line or line == "" then
+		return ""
+	end
+	local epoch, subject = line:match("^(%d+)|(.+)$")
+	if not epoch then
+		return ""
+	end
+	local mins = math.floor((tonumber(epoch) - os.time()) / 60)
+	if mins < -2 then
+		return "" -- already started a while ago; drop it
+	end
+	local when
+	if mins <= 0 then
+		when = "now"
+	elseif mins < 60 then
+		when = mins .. "m"
+	else
+		when = math.floor(mins / 60) .. "h" .. string.format("%02dm", mins % 60)
+	end
+	local col = p.subtext0
+	if mins <= 5 then
+		col = p.red
+	elseif mins <= 15 then
+		col = p.peach
+	end
+	return wezterm.format({
+		{ Foreground = { Color = col } },
+		{
+			Text = (" " .. wezterm.nerdfonts.md_calendar_clock or "")
+				.. " "
+				.. wezterm.truncate_right(subject, 22)
+				.. " "
+				.. when
+				.. " ",
+		},
+	})
+end
+
+-- Count of GitHub PRs awaiting my review, read from a cache refreshed on shell
+-- startup (scripts/refresh-gh-prs.sh — works anywhere gh exists). File read only,
+-- no spawning at render. Cache states: a number (count), or "auth"/"perm"/"err"
+-- → a concise message, or empty/missing → hidden (e.g. gh not installed).
+local function gh_prs()
+	local win = os.getenv("USERPROFILE")
+	local home = win or os.getenv("HOME")
+	if not home then
+		return ""
+	end
+	local sep = win and "\\" or "/"
+	local ok, val = pcall(function()
+		local f = io.open(home .. sep .. ".cache" .. sep .. "wezterm-gh-prs", "r")
+		if not f then
+			return nil
+		end
+		local l = f:read("*l")
+		f:close()
+		return l
+	end)
+	if not ok or not val or val == "" then
+		return "" -- gh missing / no cache yet → hide the section
+	end
+	local icon = wezterm.nerdfonts.oct_git_pull_request or ""
+	if val == "auth" then
+		return wezterm.format({ { Foreground = { Color = p.yellow } }, { Text = icon .. " gh: login" } })
+	elseif val == "perm" then
+		return wezterm.format({ { Foreground = { Color = p.yellow } }, { Text = icon .. " gh: no scope" } })
+	elseif val == "err" then
+		return wezterm.format({ { Foreground = { Color = p.yellow } }, { Text = icon .. " gh: err" } })
+	end
+	local n = tonumber(val)
+	if not n then
+		return ""
+	end
+	local col = (n > 0) and p.peach or p.subtext0
+	return wezterm.format({ { Foreground = { Color = col } }, { Text = icon .. " " .. n } })
+end
+
+-- Combine battery + next_event into ONE section-X component so tabline doesn't
+-- draw a component separator between them (keeps the clock's section separators).
+-- Order: battery, PRs, next-event. Empty parts are skipped so there are no stray
+-- spaces or separators — and an absent gh_prs leaves battery/calendar exactly as
+-- they were.
+local function right_extras(window, pane)
+	local parts = {}
+	for _, v in ipairs({ battery_status(window, pane), gh_prs(window, pane), next_event(window, pane) }) do
+		if v ~= "" then
+			parts[#parts + 1] = v
+		end
+	end
+	return table.concat(parts, " ")
+end
 
 tabline.setup({
 	options = {
@@ -315,7 +504,10 @@ tabline.setup({
 			{ "process", padding = { left = 0, right = 1 } },
 			{ "output", padding = 0, icon = { wezterm.nerdfonts.md_bell_ring, color = { fg = p.orchid } } },
 		},
-		tabline_x = { "battery" },
+		-- battery + calendar merged into one component (right_extras) so there's no
+		-- separator between them; calendar still sits between battery and the clock.
+		-- The clock (Y) keeps its own section separators.
+		tabline_x = { right_extras },
 		tabline_y = { "datetime" },
 		tabline_z = { "domain" },
 	},
