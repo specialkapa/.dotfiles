@@ -346,4 +346,47 @@ return {
       end
     end,
   },
+  {
+    -- on-demand Ruff import sorting/fixing for python buffers
+    'nvim-lua/plenary.nvim', -- already a dependency; reuse as a lightweight host
+    ft = { 'python' },
+    config = function()
+      local group = vim.api.nvim_create_augroup('RuffFixImports', { clear = true })
+      vim.api.nvim_create_autocmd('FileType', {
+        group = group,
+        pattern = 'python',
+        callback = function(args)
+          vim.keymap.set('n', '<leader>ri', function()
+            if vim.fn.executable 'ruff' == 0 then
+              vim.notify('ruff not found in active environment; skipped', vim.log.levels.WARN)
+              return
+            end
+
+            local bufnr = args.buf
+            local bufname = vim.api.nvim_buf_get_name(bufnr)
+            if bufname == '' then
+              vim.notify('buffer has no file path; save it first', vim.log.levels.WARN)
+              return
+            end
+
+            -- ensure disk matches buffer before ruff rewrites the file
+            if vim.bo[bufnr].modified then
+              vim.cmd 'write'
+            end
+
+            local output = vim.fn.system { 'ruff', 'check', bufname, '--select=I', '--fix' }
+            -- reload to pick up ruff's on-disk changes
+            vim.cmd 'checktime'
+
+            -- ruff exits non-zero when unfixable violations remain; not a hard error
+            if vim.v.shell_error ~= 0 and output ~= '' then
+              vim.notify(output, vim.log.levels.INFO)
+            else
+              vim.notify('ruff: imports fixed', vim.log.levels.INFO)
+            end
+          end, { buffer = bufnr, desc = '[R]uff fix [I]mports', noremap = true, silent = true })
+        end,
+      })
+    end,
+  },
 }
