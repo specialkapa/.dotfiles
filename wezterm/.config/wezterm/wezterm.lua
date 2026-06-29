@@ -124,6 +124,136 @@ local function adjust_opacity(delta)
 	end)
 end
 
+-- ── Pomodoro (25/5) ──────────────────────────────────────────────────────────
+-- State lives in wezterm.GLOBAL so it survives this file's hot-reload within a
+-- running session. nil = idle; otherwise a table:
+--   { phase = "work"|"break", end_time = <epoch when phase ends>, paused = bool,
+--     remaining = <secs left at pause>, expired = bool (hit 0, awaiting ack) }
+-- GLOBAL nested tables are read-modify-WRITTEN whole (pomo_set), not mutated in
+-- place — the reliable pattern for wezterm.GLOBAL. These control functions don't
+-- touch the `p` palette, so they can live above it (the key table references them).
+local POMO = { work = 25 * 60, brk = 5 * 60 }
+local function pomo_get()
+	return wezterm.GLOBAL.pomodoro
+end
+local function pomo_set(t)
+	wezterm.GLOBAL.pomodoro = t
+end
+
+local function pomo_start(phase)
+	pomo_set({
+		phase = phase,
+		end_time = os.time() + (phase == "work" and POMO.work or POMO.brk),
+		paused = false,
+		expired = false,
+	})
+end
+
+-- s: start (idle) / pause / resume / start-next-after-expiry, depending on state.
+local function pomo_toggle()
+	local s = pomo_get()
+	if not s then
+		pomo_start("work")
+	elseif s.expired then
+		pomo_start(s.phase == "work" and "break" or "work")
+	elseif s.paused then
+		s.end_time = os.time() + (s.remaining or 0)
+		s.paused = false
+		s.remaining = nil
+		pomo_set(s)
+	else
+		s.remaining = math.max(0, s.end_time - os.time())
+		s.paused = true
+		pomo_set(s)
+	end
+end
+
+-- n: jump straight to the other phase, running.
+local function pomo_skip()
+	local s = pomo_get()
+	pomo_start((s and s.phase == "work") and "break" or "work")
+end
+
+-- r: back to idle.
+local function pomo_reset()
+	wezterm.GLOBAL.pomodoro = nil
+end
+
+-- Dedicated, pomodoro-only beep — NOT the global audible_bell (which would also
+-- change the inactive-tab output-bell glyph behaviour, and can't be fired from a
+-- timer event anyway). Shells out to a one-off Windows beep like the open-uri
+-- handler does; no-ops off a Windows host.
+local function pomo_beep()
+	if not os.getenv("USERPROFILE") then
+		return
+	end
+	pcall(function()
+		wezterm.background_child_process({
+			"powershell.exe",
+			"-NoProfile",
+			"-Command",
+			"[console]::beep(880,250);[console]::beep(660,250)",
+		})
+	end)
+end
+
+-- Detect the phase boundary exactly once and ring. Runs every status_update_interval
+-- (500ms) alongside tabline's own update-status handler — WezTerm fires all handlers.
+wezterm.on("update-status", function()
+	local s = pomo_get()
+	if not s or s.paused or s.expired then
+		return
+	end
+	if (s.end_time - os.time()) <= 0 then
+		s.expired = true
+		pomo_set(s)
+		pomo_beep()
+	end
+end)
+
+-- ── Leader key ───────────────────────────────────────────────────────────────
+-- Ctrl+Space is the prefix for WezTerm's own commands. Until it's pressed, every
+-- keystroke flows straight through to the shell/nvim, so the modal actions below
+-- (LEADER r/f/p) no longer collide with anything running inside the terminal.
+-- Heads-up: Ctrl+Space is nvim-cmp's default completion trigger — WezTerm now
+-- swallows it, so rebind cmp's mapping in nvim (e.g. to <C-y> / <C-n>) if you use
+-- it. The 1s timeout means a slow second keypress just cancels the prefix.
+config.leader = { key = "Space", mods = "CTRL", timeout_milliseconds = 1000 }
+
+-- ── Seamless nvim ⇄ WezTerm pane navigation (letieu/wezterm-move.nvim) ────────
+-- Ctrl+h/j/k/l moves between *both* nvim splits and WezTerm panes. WezTerm checks
+-- whether the focused pane is running nvim/vim: if so it forwards the keystroke
+-- and the wezterm-move.nvim plugin drives the nvim side (it `wincmd`s between
+-- splits and shells out to `wezterm.exe cli activate-pane-direction` once nvim is
+-- at its edge); otherwise WezTerm switches panes itself. This is why the old
+-- Alt+Arrow pane nav — which shadowed shell/nvim word-motion — is gone. Requires
+-- the nvim plugin for the forwarding half; if process detection ever misfires the
+-- worst case is a harmless pane switch instead of a split move.
+local function is_vim(pane)
+	local info = pane:get_foreground_process_info()
+	local name = info and info.name
+	return name == "nvim" or name == "vim"
+end
+
+local nav_dirs = { h = "Left", j = "Down", k = "Up", l = "Right" }
+local function build_nav_keys()
+	local keys = {}
+	for key, dir in pairs(nav_dirs) do
+		keys[#keys + 1] = {
+			key = key,
+			mods = "CTRL",
+			action = wezterm.action_callback(function(win, pane)
+				if is_vim(pane) then
+					win:perform_action(act.SendKey({ key = key, mods = "CTRL" }), pane)
+				else
+					win:perform_action(act.ActivatePaneDirection(dir), pane)
+				end
+			end),
+		}
+	end
+	return keys
+end
+
 -- ── Keybindings (Windows-Terminal-flavoured, layered on the stock defaults) ──
 -- Only the bindings below are overridden; everything else keeps WezTerm's
 -- defaults (Ctrl+Shift+T new tab, Ctrl+Shift+W close, Ctrl+Shift+Z zoom pane,
@@ -142,13 +272,9 @@ config.keys = {
 	{ key = "phys:Minus", mods = "ALT|SHIFT", action = act.SplitVertical({ domain = "CurrentPaneDomain" }) },
 	{ key = "phys:Equal", mods = "ALT|SHIFT", action = act.SplitHorizontal({ domain = "CurrentPaneDomain" }) },
 
-	-- Pane navigation with Alt+Arrow, like Windows Terminal. NOTE: this shadows
-	-- Alt+Arrow word-motion in shells/nvim — drop these four if you'd rather keep
-	-- the default Ctrl+Shift+Arrow pane nav and free Alt+Arrow for the shell.
-	{ key = "LeftArrow", mods = "ALT", action = act.ActivatePaneDirection("Left") },
-	{ key = "RightArrow", mods = "ALT", action = act.ActivatePaneDirection("Right") },
-	{ key = "UpArrow", mods = "ALT", action = act.ActivatePaneDirection("Up") },
-	{ key = "DownArrow", mods = "ALT", action = act.ActivatePaneDirection("Down") },
+	-- Pane navigation lives on Ctrl+h/j/k/l via the seamless nvim integration
+	-- (build_nav_keys, appended to this table below). The old Alt+Arrow binds were
+	-- removed so Alt+Arrow word-motion works again in the shell and nvim.
 
 	-- Rename the active tab inline (Ctrl+Shift+,). phys:Comma matches the physical
 	-- key so Shift turning ',' into '<' doesn't break it. (Note: it's the comma
@@ -166,12 +292,32 @@ config.keys = {
 		}),
 	},
 
-	-- Enter modal key tables (direct chords). While active, bare keys do the
-	-- mode's actions and Esc/q exit; the status line shows the mode badge.
-	{ key = "R", mods = "CTRL|SHIFT", action = act.ActivateKeyTable({ name = "resize_pane", one_shot = false }) },
-	{ key = "S", mods = "CTRL|SHIFT", action = act.ActivateKeyTable({ name = "font_zoom", one_shot = false }) },
-	-- Copy mode (COPY badge) stays on its default Ctrl+Shift+X; search on Ctrl+Shift+F.
+	-- Command palette — same as WezTerm's default, but bound explicitly so it can't
+	-- depend on default-binding state (and to confirm it's not being shadowed here).
+	{ key = "P", mods = "CTRL|SHIFT", action = act.ActivateCommandPalette },
+
+	-- Enter modal key tables via the leader (LEADER then the letter). While a table
+	-- is active, bare keys do the mode's actions and Esc/q exit; the status line
+	-- shows the mode badge.
+	--   LEADER r → resize panes (h/j/k/l or arrows)
+	--   LEADER f → font size + opacity
+	--   LEADER p → pomodoro control panel (s start/pause, n skip, r reset)
+	{ key = "r", mods = "LEADER", action = act.ActivateKeyTable({ name = "resize_pane", one_shot = false }) },
+	{ key = "f", mods = "LEADER", action = act.ActivateKeyTable({ name = "font_zoom", one_shot = false }) },
+	{ key = "p", mods = "LEADER", action = act.ActivateKeyTable({ name = "pomodoro", one_shot = false }) },
+
+	-- Copy mode (COPY badge) and search (SEARCH badge), tmux-style on the leader:
+	-- LEADER [ enters copy mode, LEADER / starts search. The stock Ctrl+Shift+X /
+	-- Ctrl+Shift+F chords still work too — these are additive. Inside copy mode the
+	-- built-in vim motions (h/j/k/l, v, y) apply.
+	{ key = "[", mods = "LEADER", action = act.ActivateCopyMode },
+	{ key = "/", mods = "LEADER", action = act.Search("CurrentSelectionOrEmptyString") },
 }
+
+-- Append the seamless Ctrl+h/j/k/l navigation keys defined above.
+for _, k in ipairs(build_nav_keys()) do
+	table.insert(config.keys, k)
+end
 
 -- ── Modal key tables ─────────────────────────────────────────────────────────
 -- Each is entered by a chord above and stays active (one_shot=false) until you
@@ -206,6 +352,15 @@ config.key_tables = {
 		{ key = "Escape", action = "PopKeyTable" },
 		{ key = "q", action = "PopKeyTable" },
 	},
+	-- Pomodoro: s start/pause, n skip to next phase, r reset. The timer state is in
+	-- wezterm.GLOBAL, independent of this table, so it keeps running after you Esc out.
+	pomodoro = {
+		{ key = "s", action = wezterm.action_callback(pomo_toggle) },
+		{ key = "n", action = wezterm.action_callback(pomo_skip) },
+		{ key = "r", action = wezterm.action_callback(pomo_reset) },
+		{ key = "Escape", action = "PopKeyTable" },
+		{ key = "q", action = "PopKeyTable" },
+	},
 }
 
 -- ── Tabline: lualine-style tab bar + status line (tabline.wez plugin) ────────
@@ -216,6 +371,11 @@ config.key_tables = {
 -- Mode component: friendly labels for our key tables + the WezTerm built-ins,
 -- so section A reads RESIZE/FONT/COPY/SEARCH instead of the raw table name.
 local function mode_label(window)
+	-- Show LEADER while the prefix is armed (until the next key or the timeout), so
+	-- there's visual confirmation the chord was caught.
+	if window:leader_is_active() then
+		return "LEADER"
+	end
 	local m = window:active_key_table()
 	if m == "resize_pane" then
 		return "RESIZE"
@@ -225,6 +385,8 @@ local function mode_label(window)
 		return "COPY"
 	elseif m == "search_mode" then
 		return "SEARCH"
+	elseif m == "pomodoro" then
+		return "POMO"
 	end
 	return "NORMAL"
 end
@@ -447,14 +609,48 @@ local function gh_prs()
 	return wezterm.format({ { Foreground = { Color = col } }, { Text = icon .. " " .. n } })
 end
 
--- Combine battery + next_event into ONE section-X component so tabline doesn't
--- draw a component separator between them (keeps the clock's section separators).
--- Order: battery, PRs, next-event. Empty parts are skipped so there are no stray
--- spaces or separators — and an absent gh_prs leaves battery/calendar exactly as
--- they were.
+-- Pomodoro countdown, read from wezterm.GLOBAL (set by the control functions and the
+-- update-status boundary handler above). Empty when idle. Colours: work text → peach in
+-- the last minute, break green, paused muted, and a red/yellow flash once expired (until
+-- you start the next phase). Glyph: timer for work, coffee for break.
+local function pomo_status()
+	local s = pomo_get()
+	if not s then
+		return ""
+	end
+	local secs
+	if s.paused then
+		secs = s.remaining or 0
+	elseif s.expired then
+		secs = 0
+	else
+		secs = math.max(0, s.end_time - os.time())
+	end
+	local glyph = (s.phase == "work") and wezterm.nerdfonts.md_timer or wezterm.nerdfonts.md_coffee
+	local col
+	if s.expired then
+		col = (os.time() % 2 == 0) and p.red or p.yellow -- flash until acknowledged
+	elseif s.paused then
+		col = p.subtext0
+	elseif s.phase == "work" then
+		col = (secs <= 60) and p.peach or p.text -- warm up in the final minute
+	else
+		col = p.green
+	end
+	local pause = s.paused and (" " .. (wezterm.nerdfonts.md_pause or "")) or ""
+	return wezterm.format({
+		{ Foreground = { Color = col } },
+		{ Text = string.format("%s %02d:%02d%s", glyph or "", math.floor(secs / 60), secs % 60, pause) },
+	})
+end
+
+-- Combine pomodoro + battery + next_event into ONE section-X component so tabline
+-- doesn't draw a component separator between them (keeps the clock's section
+-- separators). Order: pomodoro, battery, PRs, next-event. Empty parts are skipped so
+-- there are no stray spaces or separators — an absent part leaves the rest untouched.
 local function right_extras(window, pane)
 	local parts = {}
-	for _, v in ipairs({ battery_status(window, pane), gh_prs(window, pane), next_event(window, pane) }) do
+	for _, v in ipairs({ pomo_status(), battery_status(window, pane), gh_prs(window, pane), next_event(window, pane) }) do
 		if v ~= "" then
 			parts[#parts + 1] = v
 		end
@@ -484,6 +680,7 @@ tabline.setup({
 			search_mode = peach_section,
 			resize_pane_mode = peach_section,
 			font_zoom_mode = peach_section,
+			pomodoro_mode = peach_section,
 			tab = {
 				active = { fg = p.crust, bg = p.mauve },
 				inactive = { fg = p.subtext0, bg = p.surface0 },
