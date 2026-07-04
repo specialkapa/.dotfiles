@@ -40,9 +40,25 @@ vim.o.completeopt = 'menuone,noselect' -- Set completeopt to have a better compl
 vim.opt.shortmess:append 'c' -- Don't give |ins-completion-menu| messages (default: does not include 'c')
 vim.opt.iskeyword:append '-' -- Hyphenated words recognized by searches (default: does not include '-')
 vim.opt.formatoptions:remove { 'c', 'r', 'o' } -- Don't insert the current comment leader automatically for auto-wrapping comments using 'textwidth', hitting <Enter> in insert mode, or hitting 'o' or 'O' in normal mode. (default: 'croql')
+vim.opt.relativenumber = false -- Relative line numbers (default: false)
 vim.opt.runtimepath:remove '/usr/share/vim/vimfiles' -- Separate Vim plugins from Neovim in case Vim still in use (default: includes this path if Vim is installed)
 vim.opt.cursorline = true
-vim.opt.statuscolumn = '%s %{v:relnum} %{v:lnum} ' -- Relative and absolute line numbers in status column
+-- Line numbers are opt-in: only real file buffers (buftype == '') get them. Every
+-- special buffer (terminal, sidebar, REPL, panel, nofile) gets a bare gutter, so we
+-- never have to strip the status column per-buffer. Signs still follow each window's
+-- `signcolumn`, so e.g. nvim-tree diagnostics keep rendering; set `signcolumn = 'no'`
+-- on a buffer to collapse `%s` and get a plain 1-col pad. Set `vim.b.user_bare_gutter`
+-- to force a bare gutter on an otherwise-normal buffer.
+function _G.UserStatusColumn()
+  if vim.bo.buftype == '' and not vim.b.user_bare_gutter then
+    return '%s %{v:lnum} '
+  end
+  return '%s '
+end
+vim.opt.statuscolumn = '%!v:lua.UserStatusColumn()'
+-- Default border for any float that doesn't set its own (lsp rename, vim.ui.select
+-- fallbacks, etc.). Plugins that configure their own border still win over this.
+vim.o.winborder = require('utils.ui').border
 vim.opt.shell = '/bin/bash' -- Use bash as default shell
 vim.opt.shellcmdflag = '-c' -- Use -c flag for bash
 vim.diagnostic.enable()
@@ -55,9 +71,6 @@ vim.api.nvim_create_autocmd('TermOpen', {
   pattern = '*',
   callback = function()
     vim.opt_local.spell = false
-    vim.opt_local.number = false
-    vim.opt_local.relativenumber = false
-    vim.opt_local.statuscolumn = ''
   end,
 })
 
@@ -123,7 +136,7 @@ vim.api.nvim_create_autocmd('FileChangedShellPost', {
 vim.diagnostic.config {
   virtual_text = false,
   float = {
-    border = 'rounded',
+    border = require('utils.ui').border,
   },
   signs = {
     text = {

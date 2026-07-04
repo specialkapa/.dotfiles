@@ -51,7 +51,7 @@ return {
         --   1. Create the directory if it doesn't exist
         --   2. Create `bookmarks.sqlite.db` inside this directory
         ---@type string?
-        db_dir = vim.fn.expand('~/.dotfiles/nvim/.config/nvim/lua/plugins/bookmarks'),
+        db_dir = vim.fn.expand '~/.dotfiles/nvim/.config/nvim/lua/plugins/.data',
         backup = {
           enabled = true,
           -- Directory to store backup files
@@ -194,7 +194,7 @@ return {
         end)
       end, { desc = 'browse bookmarks in tree view', force = true })
 
-      local group = vim.api.nvim_create_augroup('BookmarksTreeHideStatusColumn', { clear = true })
+      local group = vim.api.nvim_create_augroup('BookmarksTreeDisableSpell', { clear = true })
       vim.api.nvim_create_autocmd('BufWinEnter', {
         group = group,
         callback = function(args)
@@ -202,21 +202,14 @@ return {
             return
           end
 
-          local win = vim.api.nvim_get_current_win()
-          if not vim.api.nvim_win_is_valid(win) then
-            return
-          end
-
-          vim.api.nvim_set_option_value('statuscolumn', '', { win = win })
-          vim.api.nvim_set_option_value('number', false, { win = win })
-          vim.api.nvim_set_option_value('relativenumber', false, { win = win })
-          vim.api.nvim_set_option_value('spell', false, { win = win })
+          vim.opt_local.spell = false
         end,
       })
     end,
   },
   {
     'stevearc/aerial.nvim',
+    tag = 'v2.7.0',
     opts = {
       on_attach = function(bufnr)
         vim.keymap.set('n', '{', '<cmd>AerialPrev<CR>', { buffer = bufnr })
@@ -226,22 +219,6 @@ return {
     config = function(_, opts)
       require('aerial').setup(opts)
       vim.keymap.set('n', '<leader>a', '<cmd>AerialToggle!<CR>', { desc = 'Toggle aerial' })
-
-      local group = vim.api.nvim_create_augroup('AerialHideStatusColumn', { clear = true })
-      vim.api.nvim_create_autocmd('FileType', {
-        group = group,
-        pattern = 'aerial',
-        callback = function()
-          local win = vim.api.nvim_get_current_win()
-          if not vim.api.nvim_win_is_valid(win) then
-            return
-          end
-
-          vim.api.nvim_set_option_value('statuscolumn', '', { win = win })
-          vim.api.nvim_set_option_value('number', false, { win = win })
-          vim.api.nvim_set_option_value('relativenumber', false, { win = win })
-        end,
-      })
     end,
     -- Optional dependencies
     dependencies = {

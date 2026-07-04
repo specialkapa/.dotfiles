@@ -51,6 +51,7 @@ return {
 
     telescope.setup {
       defaults = {
+        borderchars = require('utils.ui').telescope_borderchars,
         sorting_strategy = 'ascending',
         layout_config = {
           horizontal = {
@@ -166,7 +167,11 @@ return {
     pcall(telescope.load_extension, 'fzf')
     pcall(telescope.load_extension, 'ui-select')
     pcall(telescope.load_extension, 'cmdline')
-    pcall(telescope.load_extension, 'dap')
+    -- NOTE: the 'dap' extension is intentionally NOT loaded here. telescope loads at
+    -- VimEnter (startup), and load_extension('dap') does `require('dap')`, which used to
+    -- drag the entire nvim-dap stack (+ a ~700ms mason registry refresh) into startup,
+    -- defeating dap's own lazy-loading. It is loaded from debug.lua's config instead,
+    -- once the dap stack is actually pulled in (python/go file or a debug keymap).
     pcall(telescope.load_extension, 'file_browser')
 
     local function map_pretty_files(lhs, picker, desc, opts)

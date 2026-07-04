@@ -85,6 +85,26 @@ vim.keymap.set('n', '<C-j>', ':wincmd j<CR>', opts)
 vim.keymap.set('n', '<C-h>', ':wincmd h<CR>', opts)
 vim.keymap.set('n', '<C-l>', ':wincmd l<CR>', opts)
 
+-- Seamless Ctrl+h/j/k/l with WezTerm: advertise "this pane is Neovim" via an
+-- OSC 1337 user variable. WezTerm's nav handler reads pane:get_user_vars().IS_NVIM
+-- to decide whether to forward the key here (for the wincmd maps above) or switch
+-- WezTerm panes itself. Needed on WSL, where WezTerm's process detection only ever
+-- sees `wslhost.exe` and never `nvim`. The OSC rides the pty, so it's reliable.
+local function wezterm_set_nvim(value)
+  pcall(function()
+    io.write(('\027]1337;SetUserVar=IS_NVIM=%s\007'):format(vim.base64.encode(value)))
+    io.flush()
+  end)
+end
+vim.api.nvim_create_autocmd({ 'VimEnter', 'FocusGained' }, {
+  desc = 'Mark this WezTerm pane as running Neovim',
+  callback = function() wezterm_set_nvim('true') end,
+})
+vim.api.nvim_create_autocmd('VimLeavePre', {
+  desc = 'Unmark this WezTerm pane on Neovim exit',
+  callback = function() wezterm_set_nvim('false') end,
+})
+
 -- Tabs
 vim.keymap.set('n', '<leader>to', ':tabnew<CR>', with_desc 'Open new [T]tab') -- open new tab
 vim.keymap.set('n', '<leader>tx', ':tabclose<CR>', with_desc 'Close current [T]ab') -- close current tab

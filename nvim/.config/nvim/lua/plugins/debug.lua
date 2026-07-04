@@ -1,5 +1,26 @@
 return {
   'mfussenegger/nvim-dap',
+  -- Lazy-load the whole debug stack. Opening a python/go file pulls it in (so
+  -- persistent-breakpoint signs still show on file open); the keys below are a
+  -- safety net so the debug entry points also work from any other buffer. This
+  -- keeps the ~600ms of synchronous adapter setup (uv/dlv/mason) off the startup
+  -- path -- it now runs after UIEnter, only once you touch code you'd debug.
+  ft = { 'python', 'go' },
+  keys = {
+    { '<F5>', desc = 'Debug: Start/Continue' },
+    { '<F6>', desc = 'Debug: Restart' },
+    { '<F7>', desc = 'Debug: See last session result' },
+    { '<leader>b', desc = 'Debug: Toggle Breakpoint' },
+    { '<leader>B', desc = 'Debug: Conditional Breakpoint' },
+    { '<leader>bl', desc = 'Debug: Log Point' },
+    { '<leader>bb', desc = 'Debug: Browse Breakpoints' },
+    { '<leader>rb', desc = 'Debug: Remove all Breakpoints' },
+    { '<leader>dh', desc = 'Debug: REPL history' },
+    { '<leader>dw', mode = { 'n', 'x' }, desc = 'Debug: Add to Watch' },
+    { '<leader>ss', mode = 'x', desc = 'Debug: Send Selection to REPL' },
+    { '<leader>gt', desc = 'Debug: Go To cursor' },
+    { '<space>?', desc = 'Debug: Show value in float' },
+  },
   dependencies = {
     -- Creates a beautiful debugger UI
     'igorlfs/nvim-dap-view',
@@ -23,24 +44,27 @@ return {
     local dap = require 'dap'
     local dap_view = require 'dap-view'
 
+    -- Register telescope's dap extension here rather than in telescope's own config.
+    -- telescope loads at startup (VimEnter); loading this extension there would pull the
+    -- whole dap stack into startup. By the time this dap config runs, telescope is already
+    -- loaded, so the breakpoint picker (open_breakpoint_picker below) still works.
+    pcall(function()
+      require('telescope').load_extension 'dap'
+    end)
+
+    -- This config registers every adapter itself -- python via `dap-python.setup 'uv'`
+    -- (debugpy runs through `uv run`) and go via `dap-go` pointing at the `dlv` binary --
+    -- and sets `dap.configurations` by hand below. So mason-nvim-dap has nothing to do:
+    -- `automatic_setup`, `automatic_installation` and `ensure_installed` only ever kick
+    -- off a mason registry refresh (an async op that blocks the event loop for
+    -- ~700-900ms and gets misattributed to `mappings.configurations` in the startuptime
+    -- flame). All disabled so loading the debug stack stays fast. If you ever want mason
+    -- to manage a debugger, `:DapInstall <name>` on demand.
     require('mason-nvim-dap').setup {
-      -- Makes a best effort to setup the various debuggers with
-      -- reasonable debug configurations
-      automatic_setup = true,
-      automatic_installation = true,
-
-      -- You can provide additional configuration to the handlers,
-      -- see mason-nvim-dap README for more information
+      automatic_setup = false,
+      automatic_installation = false,
       handlers = {},
-
-      -- You'll need to check that you have the required things installed
-      -- online, please don't ask me how to install them :)
-      ensure_installed = {
-        -- Update this to ensure that you have the debuggers for the langs you want
-        -- 'delve',
-        'python',
-        'debugpy',
-      },
+      ensure_installed = {},
     }
     require('nvim-dap-virtual-text').setup {
       commented = true,
@@ -115,7 +139,7 @@ return {
         terminate = '',
       },
       help = {
-        border = 'rounded',
+        border = require('utils.ui').border,
       },
       render = {
         sort_variables = nil,
@@ -161,15 +185,12 @@ return {
     vim.api.nvim_create_autocmd('FileType', {
       pattern = { 'dap-view', 'dap-view-term', 'dap-repl' },
       callback = function()
-        vim.opt_local.number = false
-        vim.opt_local.relativenumber = false
         vim.opt_local.signcolumn = 'no'
-        vim.opt_local.statuscolumn = ' '
       end,
     })
 
     require('persistent-breakpoints').setup {
-      save_dir = vim.fn.expand '~/.dotfiles/nvim/.config/nvim/lua/plugins/persistent-breakpoints/nvim_checkpoints',
+      save_dir = vim.fn.expand '~/.dotfiles/nvim/.config/nvim/lua/plugins/.data/breakpoints',
       -- when to load the breakpoints? "BufReadPost" is recommended.
       load_breakpoints_event = 'BufReadPost',
       -- record the performance of different function. run
@@ -185,6 +206,14 @@ return {
     }
 
     local persistent_breakpoints_api = require 'persistent-breakpoints.api'
+
+    -- The dap stack is now lazy-loaded on `ft`, so the BufReadPost that would have
+    -- triggered persistent-breakpoints' auto-load for the file that pulled us in has
+    -- already fired. Reload breakpoints for buffers already open so their signs still
+    -- appear on the first code file of the session.
+    vim.schedule(function()
+      pcall(persistent_breakpoints_api.load_breakpoints, true)
+    end)
 
     local persistent_breakpoints_group = vim.api.nvim_create_augroup('PersistentBreakpointsRefresh', { clear = true })
     vim.api.nvim_create_autocmd('BufWritePost', {
@@ -402,20 +431,6 @@ return {
       },
     }
 
-    local function ensure_dap_repl_visible()
-      for _, win in ipairs(vim.api.nvim_list_wins()) do
-        local buf = vim.api.nvim_win_get_buf(win)
-        local ft = vim.bo[buf].filetype
-        if ft == 'dap-repl' then
-          return
-        end
-      end
-      -- Use vim.schedule to defer opening, avoiding extmark issues
-      vim.schedule(function()
-        pcall(dap_view.open)
-      end)
-    end
-
     local function open_breakpoint_picker()
       local ok, telescope = pcall(require, 'telescope')
       if not ok then
@@ -440,9 +455,14 @@ return {
       local M = {}
 
       -- SQLite database setup for persistent history
-      local db_path = vim.fn.expand '~/.dotfiles/nvim/.config/nvim/lua/plugins/dap-repl/dap-repl-history.sqlite.db'
+      local db_path = vim.fn.expand '~/.dotfiles/nvim/.config/nvim/lua/plugins/.data/dap-repl-history.sqlite.db'
       local sqlite_ok, sqlite = pcall(require, 'sqlite')
       local db = nil
+
+      -- First lines of multi-line REPL sends captured via M.execute (see record_sent).
+      -- Used to suppress the echoed `dap> <first line>` prompt so the buffer scraper does
+      -- not also store it as a separate single-line entry alongside the full command.
+      local sent_first_lines = {}
 
       local function init_db()
         if db then
@@ -551,49 +571,23 @@ return {
         local seen = {}
         local items = {}
 
-        local function trim_empty_edges(parts)
-          local first = 1
-          local last = #parts
-          while first <= last and parts[first] == '' do
-            first = first + 1
-          end
-          while last >= first and parts[last] == '' do
-            last = last - 1
-          end
-          if first > last then
-            return {}
-          end
-          local trimmed = {}
-          for idx = first, last do
-            table.insert(trimmed, parts[idx])
-          end
-          return trimmed
-        end
-
-        local i = 1
-        while i <= #lines do
-          local line = lines[i]
-          local cmd = line:match '^dap>%s*(.*)$'
+        -- Only the text on a `dap> ` prompt line is user input; every other line in the
+        -- REPL buffer is command output and must not be recorded. Interactive input is
+        -- always a single prompt line (the prompt submits on <CR>); multi-line sends come
+        -- through M.execute and are persisted in full by record_sent, whose echoed first
+        -- line we skip here via sent_first_lines.
+        --
+        -- Strip only the `dap> ` prompt (not `%s*`) so the command's own leading
+        -- indentation is preserved -- otherwise an indented send's echoed first line would
+        -- not match the sent_first_lines key and would be recorded as a spurious duplicate.
+        for _, line in ipairs(lines) do
+          local cmd = line:match '^dap> ?(.*)$'
           if cmd ~= nil then
-            local parts = {}
-            table.insert(parts, cmd)
-            local j = i + 1
-            while j <= #lines do
-              if lines[j]:match '^dap>' then
-                break
-              end
-              table.insert(parts, lines[j])
-              j = j + 1
+            cmd = cmd:gsub('%s+$', '')
+            if cmd ~= '' and not seen[cmd] and not sent_first_lines[cmd] then
+              seen[cmd] = true
+              table.insert(items, cmd)
             end
-            parts = trim_empty_edges(parts)
-            local combined = table.concat(parts, '\n')
-            if combined ~= '' and not seen[combined] then
-              seen[combined] = true
-              table.insert(items, combined)
-            end
-            i = j
-          else
-            i = i + 1
           end
         end
 
@@ -610,6 +604,26 @@ return {
         local items = collect_repl_inputs(bufnr)
         for _, cmd in ipairs(items) do
           save_command(cmd)
+        end
+      end
+
+      -- Record a command sent through dap.repl.execute (e.g. <leader>ss, history re-run).
+      -- This is the only input path that carries multi-line text, so we persist the full
+      -- command here and remember its first line so the buffer scraper can skip the echo.
+      function M.record_sent(text)
+        if type(text) ~= 'string' then
+          return
+        end
+        local trimmed = text:gsub('%s+$', '')
+        if trimmed == '' then
+          return
+        end
+        save_command(trimmed)
+        if trimmed:find('\n', 1, true) then
+          local first = trimmed:match('^[^\n]*'):gsub('%s+$', '')
+          if first ~= '' then
+            sent_first_lines[first] = true
+          end
         end
       end
 
@@ -662,7 +676,17 @@ return {
         local conf = require('telescope.config').values
         local actions = require 'telescope.actions'
         local action_state = require 'telescope.actions.state'
+        local previewer_utils = require 'telescope.previewers.utils'
         local dap_module = require 'dap'
+
+        -- Language used to syntax-highlight the preview. Match the running session's
+        -- repl_lang when there is one (the python adapter sets 'python'); otherwise fall
+        -- back to python, since that's what this config's REPL is used for.
+        local repl_lang = 'python'
+        local session = dap_module.session()
+        if session and session.config and session.config.repl_lang then
+          repl_lang = session.config.repl_lang
+        end
 
         pickers
           .new({}, {
@@ -672,10 +696,18 @@ return {
             finder = finders.new_table {
               results = items,
               entry_maker = function(entry)
+                -- The list shows one row per entry. For multi-line commands, show the
+                -- first line plus a marker so they read as a block rather than looking
+                -- truncated; the full text is kept in `value` (preview + re-execution).
                 local first_line = entry:match '([^\n\r]*)' or entry
+                local display = first_line
+                local _, extra = entry:gsub('\n', '')
+                if extra > 0 then
+                  display = string.format('%s  ⏎ +%d', first_line, extra)
+                end
                 return {
                   value = entry,
-                  display = first_line,
+                  display = display,
                   ordinal = entry,
                 }
               end,
@@ -690,6 +722,10 @@ return {
                 end
                 local lines = vim.split(entry.value, '\n', { plain = true })
                 vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+                -- Syntax-highlight the previewed command. telescope's highlighter uses
+                -- treesitter when the parser is available (it is for python) and falls
+                -- back to vim regex syntax otherwise.
+                pcall(previewer_utils.highlighter, self.state.bufnr, repl_lang)
               end,
             },
             attach_mappings = function(prompt_bufnr, _)
@@ -763,7 +799,7 @@ return {
     end, { desc = 'DAP REPL history (Telescope)' })
 
     vim.keymap.set('n', '<space>?', function()
-      require('dap.ui.widgets').hover(nil, { border = 'rounded' })
+      require('dap.ui.widgets').hover(nil, { border = require('utils.ui').border })
     end, { desc = 'Debug: show value in floating box' })
 
     vim.keymap.set('n', '<leader>dw', dap_view.add_expr, { desc = 'Debug: Add to [W]atch list' })
@@ -953,6 +989,21 @@ return {
 
     -- Custom REPL command to pretty-print objects without duplication
     local repl = require 'dap.repl'
+
+    -- Capture multi-line REPL sends (e.g. <leader>ss, history re-runs) at the point they
+    -- execute so their full text is preserved in history. Interactive single-line input is
+    -- captured separately by scraping `dap> ` prompt lines; M.execute is the only entry
+    -- point that carries multi-line text.
+    local original_repl_execute = repl.execute
+    repl.execute = function(text, opts)
+      if not opts or opts.context == nil or opts.context == 'repl' then
+        pcall(function()
+          require('dap_repl_history').record_sent(text)
+        end)
+      end
+      return original_repl_execute(text, opts)
+    end
+
     repl.commands = vim.tbl_extend('force', repl.commands, {
       custom_commands = {
         ['.p'] = function(expr)

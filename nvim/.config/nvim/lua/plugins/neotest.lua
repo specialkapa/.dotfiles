@@ -1,5 +1,9 @@
 return {
   'nvim-neotest/neotest',
+  -- Test runner for python -- defer until you're in a python buffer so its adapters
+  -- and treesitter/plenary deps stay off the startup path. The <leader>n* keymaps in
+  -- keymaps.lua `require('neotest')`, which also pulls it in on demand.
+  ft = { 'python' },
   dependencies = {
     'nvim-neotest/nvim-nio',
     'nvim-lua/plenary.nvim',
@@ -15,7 +19,7 @@ return {
 
     neotest.setup {
       floating = {
-        border = 'rounded',
+        border = require('utils.ui').border,
       },
       icons = {
         child_indent = '│',
@@ -50,12 +54,12 @@ return {
 
     -- Hide the global statuscolumn/line numbers inside the summary sidebar
     local summary_group = vim.api.nvim_create_augroup('UserNeotestSummary', { clear = true })
+    -- Line numbers are dropped globally by UserStatusColumn for non-file buffers;
+    -- here we only drop the sign column so the summary shows a plain 1-col pad.
     local function disable_summary_numbers(bufnr)
       for _, win in ipairs(vim.api.nvim_list_wins()) do
         if vim.api.nvim_win_get_buf(win) == bufnr then
-          vim.api.nvim_set_option_value('number', false, { win = win })
-          vim.api.nvim_set_option_value('relativenumber', false, { win = win })
-          vim.api.nvim_set_option_value('statuscolumn', ' ', { win = win })
+          vim.wo[win].signcolumn = 'no'
         end
       end
     end

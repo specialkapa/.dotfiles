@@ -184,7 +184,8 @@ local function wrap_body(body, width)
   return out
 end
 
--- Build the rounded-border box (a list of virt_lines) for one comment thread.
+-- Build the border box (a list of virt_lines) for one comment thread. Corners
+-- come from utils.ui so the box tracks the config-wide border style.
 local function box_lines(thread)
   local hl = 'PrReviewPosted'
   if thread.resolved then
@@ -223,7 +224,7 @@ local function box_lines(thread)
   local out = {}
   for _, r in ipairs(rows) do
     if r.kind == 'header' then
-      out[#out + 1] = { { header_line(r.text, '╭', '╮'), hl } }
+      out[#out + 1] = { { header_line(r.text, ui.corners.tl, ui.corners.tr), hl } }
     elseif r.kind == 'sep' then
       out[#out + 1] = { { header_line(r.text, '├', '┤'), hl } }
     else
@@ -231,7 +232,7 @@ local function box_lines(thread)
       out[#out + 1] = { { '│ ', hl }, { padded, 'PrReviewBody' }, { ' │', hl } }
     end
   end
-  out[#out + 1] = { { '╰' .. string.rep('─', w + 2) .. '╯', hl } }
+  out[#out + 1] = { { ui.corners.bl .. string.rep('─', w + 2) .. ui.corners.br, hl } }
   return out
 end
 

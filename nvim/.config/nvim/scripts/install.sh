@@ -240,7 +240,6 @@ install_with_brew git-delta
 install_with_brew bat
 install_with_brew stow
 install_with_brew codex
-install_with_brew tabview
 install_with_brew btop
 install_with_brew fastfetch
 install_with_brew gh

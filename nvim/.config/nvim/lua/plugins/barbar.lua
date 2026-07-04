@@ -1,5 +1,8 @@
 return {
   'romgrk/barbar.nvim',
+  -- Bufferline isn't needed to draw the first frame; defer to just after UIEnter so
+  -- it (and its gitsigns/devicons deps) stay off the startup path.
+  event = 'VeryLazy',
   dependencies = {
     'lewis6991/gitsigns.nvim', -- OPTIONAL: for git status
     'nvim-tree/nvim-web-devicons', -- OPTIONAL: for file icons
@@ -148,4 +151,41 @@ return {
     },
     version = '^1.0.0', -- optional: only update when a new 1.x version is released
   },
+  config = function(_, opts)
+    require('barbar').setup(opts)
+
+    -- barbar derives its per-sign highlight groups (git + diagnostics) from a
+    -- default background, but catppuccin overrides the base Buffer{State} bg
+    -- without refreshing those subgroups — so on the focused tab the signs keep
+    -- the editor bg and look "unhighlighted". Re-tint each sign subgroup to match
+    -- its base group's background while preserving the semantic fg. Re-run on
+    -- ColorScheme so it survives the latte/mocha (light/dark) flavour switch.
+    local STATES = { 'Current', 'Visible', 'Inactive', 'Alternate' }
+    local SIGN_SUFFIXES = { 'ADDED', 'CHANGED', 'DELETED', 'ERROR', 'WARN', 'INFO', 'HINT' }
+
+    local function sync_tab_sign_bg()
+      for _, state in ipairs(STATES) do
+        local base = vim.api.nvim_get_hl(0, { name = 'Buffer' .. state, link = false })
+        if base.bg then
+          for _, suffix in ipairs(SIGN_SUFFIXES) do
+            local name = 'Buffer' .. state .. suffix
+            local cur = vim.api.nvim_get_hl(0, { name = name, link = false })
+            vim.api.nvim_set_hl(0, name, { fg = cur.fg, bg = base.bg })
+          end
+        end
+      end
+    end
+
+    -- Defer so it runs after barbar (and catppuccin) have finished defining their
+    -- groups, whether at startup or after a later colorscheme reload.
+    local function schedule_sync()
+      vim.schedule(sync_tab_sign_bg)
+    end
+
+    schedule_sync()
+    vim.api.nvim_create_autocmd('ColorScheme', {
+      group = vim.api.nvim_create_augroup('BarbarSignBg', { clear = true }),
+      callback = schedule_sync,
+    })
+  end,
 }

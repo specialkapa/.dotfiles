@@ -199,7 +199,14 @@ return {
     -- Ensure the servers and tools above are installed
     local ensure_installed = vim.tbl_keys(servers or {})
     vim.list_extend(ensure_installed, {
-      'stylua', -- Used to format Lua code
+      'stylua', -- Lua formatter (conform)
+      'prettier', -- html/json/yaml/markdown/vimwiki formatter (conform)
+      'shfmt', -- shell formatter (conform)
+      'checkmake', -- Makefile linter (nvim-lint)
+      'golangci-lint', -- Go linter (nvim-lint)
+      'eslint_d', -- js/ts linter (nvim-lint)
+      -- ruff (python) is installed via the `ruff` LSP server entry above.
+      -- terraform_fmt ships with terraform itself; no separate mason package.
     })
     require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 

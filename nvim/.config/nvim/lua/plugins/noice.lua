@@ -31,6 +31,12 @@ return {
         },
       },
     },
+    views = {
+      cmdline_popup = { border = { style = require('utils.ui').border } },
+      popupmenu = { border = { style = require('utils.ui').border } },
+      hover = { border = { style = require('utils.ui').border } },
+      confirm = { border = { style = require('utils.ui').border } },
+    },
     routes = {
       {
         filter = {

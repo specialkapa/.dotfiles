@@ -1,8 +1,42 @@
 -- Small UI helpers shared across plugins (floating-window styling, highlights).
 local M = {}
 
--- Rounded floating-window border used across the git / PR-review floats.
-M.BORDER = { '╭', '─', '╮', '│', '╯', '─', '╰', '│' }
+-- ─── Border style ──────────────────────────────────────────────────────────
+-- Single source of truth for every float / hand-drawn box in the config. Flip
+-- `STYLE` and everything restyles at once. Only the four corners differ between
+-- styles; the straight edges (─ │) and T-junctions (├ ┤) are identical, so
+-- hand-drawn boxes only ever need their corners from here.
+local STYLE = 'single' -- 'rounded' | 'single' | 'double'
+
+local CORNERS = {
+  rounded = { tl = '╭', tr = '╮', bl = '╰', br = '╯', h = '─', v = '│' },
+  single = { tl = '┌', tr = '┐', bl = '└', br = '┘', h = '─', v = '│' },
+  double = { tl = '╔', tr = '╗', bl = '╚', br = '╝', h = '═', v = '║' },
+}
+
+-- Native border name for any `border = ...` plugin option or `nvim_open_win`.
+M.border = STYLE
+
+-- Corner/edge glyphs for hand-drawn boxes (virt_lines, ASCII art, …).
+M.corners = CORNERS[STYLE] or CORNERS.rounded
+
+-- 8-element border char list in Neovim's order:
+-- { topleft, top, topright, right, botright, bottom, botleft, left }
+local c = M.corners
+M.BORDER = { c.tl, c.h, c.tr, c.v, c.br, c.h, c.bl, c.v }
+
+-- Telescope uses its own key (`borderchars`) with a different order:
+-- { top, right, bottom, left, topleft, topright, botright, botleft }
+M.telescope_borderchars = { c.h, c.v, c.h, c.v, c.tl, c.tr, c.br, c.bl }
+
+-- Same as BORDER but every glyph carries highlight group `hl` (e.g. cmp windows).
+function M.border_hl(hl)
+  local spec = {}
+  for _, ch in ipairs(M.BORDER) do
+    spec[#spec + 1] = { ch, hl }
+  end
+  return spec
+end
 
 -- Define a highlight group only if it doesn't already exist, so we never clobber a
 -- group the colorscheme has set.

@@ -13,6 +13,7 @@ return {
       win = {
         title = '  keybinds ',
         title_pos = 'center',
+        border = require('utils.ui').border,
       },
     },
   },
@@ -60,12 +61,8 @@ return {
     opts = {},
     config = function()
       local opts = { noremap = true, silent = true }
-      vim.keymap.set('n', '<C-_>', require('Comment.api').toggle.linewise.current, opts)
       vim.keymap.set('n', '<C-c>', require('Comment.api').toggle.linewise.current, opts)
-      vim.keymap.set('n', '<C-/>', require('Comment.api').toggle.linewise.current, opts)
-      vim.keymap.set('v', '<C-_>', "<ESC><cmd>lua require('Comment.api').toggle.linewise(vim.fn.visualmode())<cr>", opts)
       vim.keymap.set('v', '<C-c>', "<ESC><cmd>lua require('Comment.api').toggle.linewise(vim.fn.visualmode())<cr>", opts)
-      vim.keymap.set('v', '<C-/>', "<ESC><cmd>lua require('Comment.api').toggle.linewise(vim.fn.visualmode())<cr>", opts)
     end,
   },
   {
@@ -96,6 +93,12 @@ return {
   },
   {
     'vimwiki/vimwiki',
+    -- The `init` below (vim.g.vimwiki_list + AppendDiary) still runs at startup; only
+    -- the plugin body is deferred until you actually enter the wiki via a command or
+    -- its index keymaps. Note: <leader>wd is intentionally omitted -- keymaps.lua
+    -- rebinds it to AppendDiary.
+    keys = { '<leader>ww', '<leader>wt', '<leader>wi' },
+    cmd = { 'VimwikiIndex', 'VimwikiTabIndex', 'VimwikiDiaryIndex', 'VimwikiMakeDiaryNote', 'VimwikiUISelect' },
     init = function()
       vim.g.vimwiki_list = {
         {
@@ -231,11 +234,5 @@ return {
       hl(0, 'MultiCursorDisabledVisual', { link = 'Visual' })
       hl(0, 'MultiCursorDisabledSign', { link = 'SignColumn' })
     end,
-  },
-  {
-    'GCBallesteros/jupytext.nvim',
-    config = true,
-    -- Depending on your nvim distro or config you may need to make the loading not lazy
-    -- lazy=false,
   },
 }

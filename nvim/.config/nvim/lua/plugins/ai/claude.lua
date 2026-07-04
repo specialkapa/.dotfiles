@@ -77,7 +77,7 @@ function M.open()
     width = width,
     height = height,
     style = 'minimal',
-    border = 'rounded',
+    border = require('utils.ui').border,
     title = title,
     title_pos = 'center',
     footer = ' <C-s>/<CR> send · <Esc>/q cancel ',

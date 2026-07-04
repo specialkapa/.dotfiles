@@ -92,7 +92,7 @@ return {
           quit_on_focus_loss = true,
           open_win_config = {
             relative = 'editor',
-            border = 'rounded',
+            border = require('utils.ui').border,
             width = 30,
             height = 30,
             row = 1,
@@ -331,14 +331,6 @@ return {
         },
       },
     } -- END_DEFAULT_OPTS
-
-    vim.api.nvim_create_autocmd('BufEnter', {
-      callback = function()
-        if vim.bo.filetype == 'NvimTree' then
-          vim.wo.statuscolumn = ''
-        end
-      end,
-    })
 
     -- forward rename events to pymple so python imports stay in sync
     if not vim.g._pymple_nvim_tree_renamed_hook then

@@ -326,7 +326,7 @@ local function open_help()
     col = math.floor((ui.width - width) / 2),
     row = math.floor((ui.height - height) / 2),
     style = 'minimal',
-    border = 'rounded',
+    border = require('utils.ui').border,
     title = { { ' help ', 'FloatTitle' } },
     title_pos = 'center',
   })
@@ -394,7 +394,7 @@ function M.open_form()
       col = math.floor((ui.width - width) / 2),
       row = math.floor((ui.height - height) / 2),
       style = 'minimal',
-      border = 'rounded',
+      border = require('utils.ui').border,
       title = ' json2struct ',
       title_pos = 'center',
     })

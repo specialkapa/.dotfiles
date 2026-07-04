@@ -87,16 +87,7 @@ return { -- Autocompletion
       })
     end
 
-    local border = {
-      { '╭', border_highlight },
-      { '─', border_highlight },
-      { '╮', border_highlight },
-      { '│', border_highlight },
-      { '╯', border_highlight },
-      { '─', border_highlight },
-      { '╰', border_highlight },
-      { '│', border_highlight },
-    }
+    local border = require('utils.ui').border_hl(border_highlight)
 
     cmp.setup {
       window = {

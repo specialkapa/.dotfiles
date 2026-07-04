@@ -1,61 +1,49 @@
-local function patch_semshi_node()
-  local node_path = vim.fn.stdpath 'data' .. '/lazy/semshi/rplugin/python3/semshi/node.py'
-  if vim.fn.filereadable(node_path) ~= 1 then
-    return false
+-- ty (Astral's LSP) emits standard LSP semantic tokens, which Neovim applies
+-- automatically as `@lsp.type.*` / `@lsp.typemod.*.*` highlight groups. Catppuccin
+-- already links these to sensible defaults, so this is purely an override to echo the
+-- (now-removed) semshi colour scheme. Tune/remove freely -- run `:Inspect` on a token
+-- to see which group is actually active before adjusting a colour here.
+local function apply_ty_lsp_highlights()
+  local palettes_ok, palettes = pcall(require, 'catppuccin.palettes')
+  if not palettes_ok then
+    return
   end
 
-  local lines = vim.fn.readfile(node_path)
-  local text = table.concat(lines, '\n')
-
-  -- Check if already patched
-  if text:find 'self%.symbol = None%s+# PATCHED' then
-    return true
+  local flavour = vim.g.catppuccin_flavour or 'mocha'
+  local palette = palettes.get_palette(flavour)
+  if not palette then
+    return
   end
 
-  -- Check if file has the problematic code we need to patch
-  if not text:find "raise Exception%('%%s can\\'t lookup" then
-    return false
-  end
-
-  -- Patch 1: Handle KeyError gracefully instead of raising exception
-  local patched = text:gsub(
-    "except KeyError:\n(%s+)# Set dummy hl group, so all fields in __repr__ are defined%.\n%s+self%.hl_group = '%?'\n%s+raise Exception%('%%s can\\'t lookup \"%%s\"' %% %(self, self%.symname%)%)",
-    'except KeyError:\n%1self.symbol = None  # PATCHED: gracefully handle Python 3.11+ symtable changes'
-  )
-
-  if patched == text then
-    -- Try alternative pattern (might have different whitespace)
-    patched = text:gsub(
-      "(except KeyError:.-raise Exception%('%%s can\\'t lookup \"%%s\"' %% %(self, self%.symname%)%))",
-      'except KeyError:\n                self.symbol = None  # PATCHED: gracefully handle Python 3.11+ symtable changes'
-    )
-  end
-
-  if patched == text then
-    return false
-  end
-
-  -- Patch 2: Handle None symbol in _make_hl_group selection
-  patched = patched:gsub(
-    '(if hl_group is not None:\n%s+self%.hl_group = hl_group\n%s+)(else:\n%s+self%.hl_group = self%._make_hl_group%(%))',
-    '%1elif self.symbol is None:\n            self.hl_group = UNRESOLVED\n        %2'
-  )
-
-  -- Patch 3: Handle None symbol in base_table method
-  patched = patched:gsub(
-    "(def base_table%(self%).-if self%.hl_group == ATTRIBUTE:\n%s+return self%.env%[%-1%]\n%s+)(if self%.symbol%.is_global)",
-    '%1if self.symbol is None:\n            return None\n        %2'
-  )
-
-  vim.fn.writefile(vim.split(patched, '\n', { plain = true }), node_path)
-  return true
+  -- Mirror of the semshi palette, mapped onto standard LSP token groups.
+  -- Note: LSP has no concept of unused-parameter / unresolved-name / free-variable,
+  -- so those semshi cues have no equivalent here -- that gap is the trade-off of the swap.
+  vim.api.nvim_set_hl(0, '@lsp.type.variable.python', { fg = palette.lavender }) -- was semshiLocal
+  vim.api.nvim_set_hl(0, '@lsp.type.parameter.python', { fg = palette.maroon }) -- was semshiParameter
+  vim.api.nvim_set_hl(0, '@lsp.type.property.python', { fg = palette.mauve }) -- was semshiAttribute
+  vim.api.nvim_set_hl(0, '@lsp.type.selfParameter.python', { fg = palette.flamingo }) -- was semshiSelf
+  -- Builtins (`defaultLibrary` modifier) -- was semshiBuiltin
+  vim.api.nvim_set_hl(0, '@lsp.typemod.variable.defaultLibrary.python', { fg = palette.teal })
+  vim.api.nvim_set_hl(0, '@lsp.typemod.function.defaultLibrary.python', { fg = palette.teal })
+  vim.api.nvim_set_hl(0, '@lsp.typemod.class.defaultLibrary.python', { fg = palette.teal })
 end
+
+apply_ty_lsp_highlights()
+
+local ty_hl_group = vim.api.nvim_create_augroup('TyLspCatppuccinHighlights', { clear = true })
+vim.api.nvim_create_autocmd('ColorScheme', {
+  group = ty_hl_group,
+  callback = apply_ty_lsp_highlights,
+})
 
 return {
   {
     -- Automatic refactoring of workspace imports on python file/dir move/rename.
     -- Automatic missing import resolution for sumbol under cursor.
     'alexpasmantier/pymple.nvim',
+    -- Import refactoring only matters once you're actually editing python/markdown,
+    -- so defer loading (and its heavy nvim-tree/dressing/nui/treesitter deps) until then.
+    ft = { 'python', 'markdown' },
     -- TODO:: document fd (brew), cargo (rust) and grip-grab (cargo) dependencies
     dependencies = {
       'nvim-lua/plenary.nvim',
@@ -126,67 +114,6 @@ return {
     end,
   },
   {
-    'numirias/semshi',
-    ft = { 'python' },
-    build = function()
-      vim.cmd 'UpdateRemotePlugins'
-      patch_semshi_node()
-    end,
-    config = function()
-      -- Ensure patch is applied (in case plugin was updated)
-      if patch_semshi_node() then
-        vim.cmd 'UpdateRemotePlugins'
-      end
-
-      vim.g['semshi#active'] = 1
-      vim.g['semshi#always_update_all_highlights'] = 1
-      vim.g['semshi#excluded_hl_groups'] = { 'imported' }
-
-      local function apply_semshi_highlights()
-        local palettes_ok, palettes = pcall(require, 'catppuccin.palettes')
-        if not palettes_ok then
-          return
-        end
-
-        local flavour = vim.g.catppuccin_flavour or 'mocha'
-        local palette = palettes.get_palette(flavour)
-        if not palette then
-          return
-        end
-
-        vim.api.nvim_set_hl(0, 'semshiLocal', { fg = palette.lavender })
-        vim.api.nvim_set_hl(0, 'semshiGlobal', { fg = palette.blue })
-        vim.api.nvim_set_hl(0, 'semshiParameter', { fg = palette.maroon })
-        vim.api.nvim_set_hl(0, 'semshiParameterUnused', { fg = palette.overlay1, italic = true })
-        vim.api.nvim_set_hl(0, 'semshiFree', { fg = palette.peach })
-        vim.api.nvim_set_hl(0, 'semshiBuiltin', { fg = palette.teal })
-        vim.api.nvim_set_hl(0, 'semshiAttribute', { fg = palette.mauve })
-        vim.api.nvim_set_hl(0, 'semshiSelf', { fg = palette.flamingo })
-        vim.api.nvim_set_hl(0, 'semshiUnresolved', { fg = palette.red, underline = true })
-        vim.api.nvim_set_hl(0, 'semshiSelected', { fg = palette.sky, bold = true })
-        vim.api.nvim_set_hl(0, 'semshiError', { fg = palette.red, bold = true, underline = true })
-        vim.api.nvim_set_hl(0, 'semshiDocstring', { fg = palette.green, italic = true })
-      end
-
-      apply_semshi_highlights()
-
-      local highlight_group = vim.api.nvim_create_augroup('SemshiCatppuccinHighlights', { clear = true })
-      vim.api.nvim_create_autocmd('ColorScheme', {
-        group = highlight_group,
-        callback = apply_semshi_highlights,
-      })
-
-      local enable_group = vim.api.nvim_create_augroup('SemshiPythonAutoEnable', { clear = true })
-      vim.api.nvim_create_autocmd('FileType', {
-        group = enable_group,
-        pattern = 'python',
-        callback = function()
-          pcall(vim.cmd, 'Semshi enable')
-        end,
-      })
-    end,
-  },
-  {
     'smzm/hydrovim',
     dependencies = { 'MunifTanjim/nui.nvim' },
     -- optional: lazy-load when F8 is pressed
@@ -194,11 +121,15 @@ return {
   },
   {
     'Vigemus/iron.nvim',
+    -- REPL for python/sh -- load when you open one of those files (or hit a repl
+    -- keymap), not at startup. Crucially this used to `require 'dap'` eagerly, which
+    -- dragged the entire nvim-dap stack (~600ms) into startup.
+    ft = { 'python', 'sh' },
+    keys = { '<space>rr', '<space>rf', '<space>rh', { '<space>sc', mode = { 'n', 'x' } } },
     config = function()
       local iron = require 'iron.core'
       local view = require 'iron.view'
       local common = require 'iron.fts.common'
-      local dap = require 'dap'
 
       iron.setup {
         config = {
@@ -280,12 +211,12 @@ return {
         ignore_blank_lines = true, -- ignore blank lines when sending visual select lines
       }
 
+      -- The bare gutter (no line numbers) is handled globally by UserStatusColumn;
+      -- here we only drop the sign column so the REPL shows a plain 1-col pad.
       local function disable_python_repl_numbers(bufnr)
         for _, win in ipairs(vim.api.nvim_list_wins()) do
           if vim.api.nvim_win_get_buf(win) == bufnr then
-            vim.api.nvim_set_option_value('number', false, { win = win })
-            vim.api.nvim_set_option_value('relativenumber', false, { win = win })
-            vim.api.nvim_set_option_value('statuscolumn', ' ', { win = win })
+            vim.wo[win].signcolumn = 'no'
           end
         end
       end
@@ -328,7 +259,7 @@ return {
         if ok then
           dapui_module.open { reset = false }
         else
-          dap.repl.open()
+          require('dap').repl.open()
         end
       end
 
@@ -342,7 +273,7 @@ return {
         end
 
         ensure_dap_repl_visible()
-        dap.repl.execute(text)
+        require('dap').repl.execute(text)
       end
     end,
   },
@@ -351,42 +282,64 @@ return {
     'nvim-lua/plenary.nvim', -- already a dependency; reuse as a lightweight host
     ft = { 'python' },
     config = function()
+      local function fix_imports(bufnr)
+        return function()
+          if vim.fn.executable 'ruff' == 0 then
+            vim.notify('ruff not found in active environment; skipped', vim.log.levels.WARN)
+            return
+          end
+
+          local bufname = vim.api.nvim_buf_get_name(bufnr)
+          if bufname == '' then
+            vim.notify('buffer has no file path; save it first', vim.log.levels.WARN)
+            return
+          end
+
+          -- ensure disk matches buffer before ruff rewrites the file
+          if vim.bo[bufnr].modified then
+            vim.cmd 'write'
+          end
+
+          local output = vim.fn.system { 'ruff', 'check', bufname, '--select=I', '--fix' }
+          -- reload to pick up ruff's on-disk changes
+          vim.cmd 'checktime'
+
+          -- ruff exits non-zero when unfixable violations remain; not a hard error
+          if vim.v.shell_error ~= 0 and output ~= '' then
+            vim.notify(output, vim.log.levels.INFO)
+          else
+            vim.notify('ruff: imports fixed', vim.log.levels.INFO)
+          end
+        end
+      end
+
+      local function set_keymap(bufnr)
+        vim.keymap.set(
+          'n',
+          '<leader>ri',
+          fix_imports(bufnr),
+          { buffer = bufnr, desc = '[R]uff fix [I]mports', noremap = true, silent = true }
+        )
+      end
+
       local group = vim.api.nvim_create_augroup('RuffFixImports', { clear = true })
       vim.api.nvim_create_autocmd('FileType', {
         group = group,
         pattern = 'python',
         callback = function(args)
-          vim.keymap.set('n', '<leader>ri', function()
-            if vim.fn.executable 'ruff' == 0 then
-              vim.notify('ruff not found in active environment; skipped', vim.log.levels.WARN)
-              return
-            end
-
-            local bufnr = args.buf
-            local bufname = vim.api.nvim_buf_get_name(bufnr)
-            if bufname == '' then
-              vim.notify('buffer has no file path; save it first', vim.log.levels.WARN)
-              return
-            end
-
-            -- ensure disk matches buffer before ruff rewrites the file
-            if vim.bo[bufnr].modified then
-              vim.cmd 'write'
-            end
-
-            local output = vim.fn.system { 'ruff', 'check', bufname, '--select=I', '--fix' }
-            -- reload to pick up ruff's on-disk changes
-            vim.cmd 'checktime'
-
-            -- ruff exits non-zero when unfixable violations remain; not a hard error
-            if vim.v.shell_error ~= 0 and output ~= '' then
-              vim.notify(output, vim.log.levels.INFO)
-            else
-              vim.notify('ruff: imports fixed', vim.log.levels.INFO)
-            end
-          end, { buffer = bufnr, desc = '[R]uff fix [I]mports', noremap = true, silent = true })
+          set_keymap(args.buf)
         end,
       })
+
+      -- This plugin is lazy-loaded on `ft = python`, so by the time `config` runs the
+      -- FileType event for the buffer that triggered the load has already fired — the
+      -- autocmd above won't catch it. Apply the mapping to any python buffers already
+      -- open so the very first python file you open gets the keymap too.
+      for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].filetype == 'python' then
+          set_keymap(buf)
+        end
+      end
     end,
   },
 }

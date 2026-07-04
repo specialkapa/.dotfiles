@@ -384,14 +384,12 @@ local function open_panel()
   vim.api.nvim_buf_set_option(panel.buf, 'bufhidden', 'wipe')
   vim.api.nvim_buf_set_option(panel.buf, 'buflisted', false)
   pcall(vim.api.nvim_buf_set_name, panel.buf, 'pr://files')
-  vim.api.nvim_win_set_option(panel.win, 'number', false)
-  vim.api.nvim_win_set_option(panel.win, 'relativenumber', false)
+  -- line numbers are dropped globally by UserStatusColumn; drop the sign gutter and
+  -- the end-of-buffer ~ markers below too
   vim.api.nvim_win_set_option(panel.win, 'signcolumn', 'no')
   vim.api.nvim_win_set_option(panel.win, 'cursorline', true)
   vim.api.nvim_win_set_option(panel.win, 'winfixwidth', true)
   vim.api.nvim_win_set_option(panel.win, 'wrap', false)
-  -- drop the global statuscolumn (line numbers) and the end-of-buffer ~ markers
-  vim.api.nvim_win_set_option(panel.win, 'statuscolumn', '')
   vim.api.nvim_win_call(panel.win, function()
     vim.opt_local.fillchars:append 'eob: '
   end)

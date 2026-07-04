@@ -8,7 +8,7 @@ return {
         float = {
           width = 1,
           height = 0.6,
-          border = 'rounded',
+          border = require('utils.ui').border,
           row = nil,
           col = nil,
           title = 'codex',
@@ -18,23 +18,6 @@ return {
         log_level = 'debug',
         autostart = false,
       }
-
-      local group = vim.api.nvim_create_augroup('CodexHideStatusColumn', { clear = true })
-      vim.api.nvim_create_autocmd('BufWinEnter', {
-        group = group,
-        callback = function(args)
-          if vim.bo[args.buf].filetype ~= 'codex' then
-            return
-          end
-          local win = vim.api.nvim_get_current_win()
-          if not vim.api.nvim_win_is_valid(win) then
-            return
-          end
-          vim.api.nvim_set_option_value('statuscolumn', '', { win = win })
-          vim.api.nvim_set_option_value('number', false, { win = win })
-          vim.api.nvim_set_option_value('relativenumber', false, { win = win })
-        end,
-      })
 
       vim.keymap.set('v', '<leader>cs', function()
         require('codex').actions.send_selection()

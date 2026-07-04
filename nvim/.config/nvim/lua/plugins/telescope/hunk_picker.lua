@@ -58,10 +58,10 @@ function M.pick()
         prompt_position = 'top',
         width = 0.5,
         height = 0.4,
-        preview_width = 0.6,
+        preview_width = 0.80,
       },
     }, {
-      prompt_title = 'Hunks in Current Buffer',
+      prompt_title = 'hunks in buffer',
       finder = finders.new_table {
         results = entries,
         entry_maker = function(entry)
@@ -75,7 +75,7 @@ function M.pick()
       },
       sorter = conf.generic_sorter {},
       previewer = previewers.new_buffer_previewer {
-        title = 'Hunk Diff',
+        title = 'diff preview',
         define_preview = function(self, entry)
           -- gitsigns stores the unified-diff body for each hunk in `hunk.lines`.
           local lines = entry.value.lines or {}

@@ -68,7 +68,7 @@ local function run_up(file, services)
     cmd = cmdline,
     dir = vim.fs.dirname(file),
     direction = 'float',
-    float_opts = { border = 'curved', title_pos = 'center' },
+    float_opts = { border = require('utils.ui').BORDER, title_pos = 'center' },
     display_name = 'docker compose up',
     close_on_exit = false, -- we decide what to do based on the exit code
     on_exit = function(_, _, exit_code)

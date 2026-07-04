@@ -66,6 +66,10 @@ return {
     dependencies = {
       'nvim-lua/plenary.nvim',
     },
+    init = function()
+      -- lazygit.nvim uses the same 8-char order as nvim_open_win / ui.BORDER
+      vim.g.lazygit_floating_window_border_chars = require('utils.ui').BORDER
+    end,
     -- setting the keybinding for LazyGit with 'keys' is recommended in
     -- order to load the plugin when the command is run for the first time
     keys = {

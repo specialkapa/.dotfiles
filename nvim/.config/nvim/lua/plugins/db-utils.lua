@@ -12,7 +12,153 @@ return {
   },
   init = function()
     vim.g.db_ui_use_nerd_fonts = 1
-    vim.g.db_ui_save_location = vim.fn.expand '~/.dotfiles/nvim/.config/nvim/lua/plugins/dbui'
+    vim.g.db_ui_save_location = vim.fn.expand '~/.dotfiles/nvim/.config/nvim/lua/plugins/.data'
+
+    -- Auto-open a sqlite file as a DBUI connection.
+    --
+    -- When a real SQLite file (*.db / *.sqlite / *.sqlite3) is opened, register it
+    -- as a vim-dadbod-ui connection named after the file (if not already present),
+    -- fire up the DBUI drawer on the left, and expand the new connection so its
+    -- tables are shown immediately.
+    local dbui_save_dir = vim.g.db_ui_save_location
+    local connections_file = dbui_save_dir .. '/connections.json'
+
+    local function read_connections()
+      if vim.fn.filereadable(connections_file) == 0 then
+        return {}
+      end
+      local content = vim.trim(table.concat(vim.fn.readfile(connections_file), '\n'))
+      if content == '' then
+        return {}
+      end
+      local ok, data = pcall(vim.fn.json_decode, content)
+      if not ok or type(data) ~= 'table' then
+        return {}
+      end
+      return data
+    end
+
+    local function write_connections(conns)
+      vim.fn.mkdir(dbui_save_dir, 'p')
+      -- Match vim-dadbod-ui's own format: a single JSON line.
+      vim.fn.writefile({ vim.fn.json_encode(conns) }, connections_file)
+    end
+
+    -- Only act on genuine SQLite databases so we don't hijack unrelated *.db files.
+    local function is_sqlite_file(path)
+      local f = io.open(path, 'rb')
+      if not f then
+        return false
+      end
+      local header = f:read(16)
+      f:close()
+      return header ~= nil and header:sub(1, 15) == 'SQLite format 3'
+    end
+
+    -- Ensure a connection for `path` exists. Returns the connection name and
+    -- whether it was newly added.
+    local function ensure_connection(path)
+      local url = 'sqlite:' .. path
+      local conns = read_connections()
+      local names = {}
+      for _, c in ipairs(conns) do
+        names[c.name] = true
+        if c.url == url then
+          return c.name, false
+        end
+      end
+      local base = vim.fn.fnamemodify(path, ':t')
+      local name, i = base, 2
+      while names[name] do
+        name = base .. '_' .. i
+        i = i + 1
+      end
+      table.insert(conns, { name = name, url = url })
+      write_connections(conns)
+      return name, true
+    end
+
+    -- Open the DBUI drawer and expand the connection for `key` (name .. '_file').
+    local function open_connection_in_dbui(key, added)
+      vim.schedule(function()
+        -- Loads the plugin (lazy) if needed and opens the drawer on the left.
+        pcall(vim.cmd, 'DBUI')
+
+        -- If we just wrote a new entry and an instance already existed, re-read
+        -- the connections file so the drawer picks the connection up.
+        if added then
+          pcall(vim.cmd, [[call db_ui#drawer#get().render({'dbs': 1})]])
+        end
+
+        local ok, drawer = pcall(vim.fn['db_ui#drawer#get'])
+        if not ok or type(drawer) ~= 'table' or type(drawer.content) ~= 'table' then
+          return
+        end
+
+        for line_nr, item in ipairs(drawer.content) do
+          if item.type == 'db' and item.dbui_db_key_name == key then
+            if vim.bo.filetype ~= 'dbui' then
+              pcall(vim.cmd, [[call db_ui#drawer#get().focus()]])
+            end
+            pcall(vim.api.nvim_win_set_cursor, 0, { line_nr, 0 })
+            -- Expand (connect + list tables) only if it isn't already open.
+            if item.expanded ~= 1 then
+              pcall(vim.cmd, [[execute "normal \<Plug>(DBUI_SelectLine)"]])
+            end
+            break
+          end
+        end
+      end)
+    end
+
+    -- Replace the (binary) sqlite file buffer with an empty scratch buffer so its
+    -- contents are never shown, then wipe it. Done synchronously (before redraw)
+    -- to avoid flashing the raw bytes.
+    local function discard_sqlite_buffer(bufnr)
+      local win = vim.fn.bufwinid(bufnr)
+      if win ~= -1 then
+        pcall(vim.api.nvim_set_current_win, win)
+        pcall(vim.cmd, 'enew')
+      end
+      if vim.api.nvim_buf_is_valid(bufnr) then
+        pcall(vim.api.nvim_buf_delete, bufnr, { force = true })
+      end
+    end
+
+    local function open_sqlite_in_dbui(bufnr, path)
+      if vim.bo[bufnr].buftype ~= '' or not is_sqlite_file(path) then
+        return
+      end
+
+      -- Register the connection (no-op if it already exists).
+      local name, added = ensure_connection(path)
+
+      -- Blank the buffer in place so its raw bytes are never rendered, but keep
+      -- it valid for the rest of the BufReadPost chain (other handlers, e.g. the
+      -- linter, read args.buf after us). Switching it to 'nofile' also stops it
+      -- from ever being written back over the database.
+      vim.bo[bufnr].modifiable = true
+      pcall(vim.api.nvim_buf_set_lines, bufnr, 0, -1, false, {})
+      vim.bo[bufnr].modifiable = false
+      vim.bo[bufnr].modified = false
+      vim.bo[bufnr].buftype = 'nofile'
+      vim.bo[bufnr].swapfile = false
+
+      -- Defer the actual removal + DBUI open until the event chain has finished,
+      -- so we never invalidate the buffer while another handler is still using it.
+      vim.schedule(function()
+        discard_sqlite_buffer(bufnr)
+        open_connection_in_dbui(name .. '_file', added)
+      end)
+    end
+
+    vim.api.nvim_create_autocmd('BufReadPost', {
+      group = vim.api.nvim_create_augroup('sqlite_auto_dbui', { clear = true }),
+      pattern = { '*.db', '*.sqlite', '*.sqlite3' },
+      callback = function(args)
+        pcall(open_sqlite_in_dbui, args.buf, vim.fn.fnamemodify(args.file, ':p'))
+      end,
+    })
   end,
   config = function()
     local function latest_dbout_file()
@@ -265,10 +411,7 @@ return {
           -- Find all windows displaying this buffer
           for _, win in ipairs(vim.api.nvim_list_wins()) do
             if vim.api.nvim_win_get_buf(win) == bufnr then
-              vim.wo[win].number = false
-              vim.wo[win].relativenumber = false
               vim.wo[win].signcolumn = 'no'
-              vim.wo[win].statuscolumn = ' '
               -- Disable neominimap for this window
               vim.b[bufnr].neominimap_disable = true
               -- Also try to disable via command if available
@@ -387,10 +530,7 @@ return {
           or bufname:match 'dbui://'
           or bufname:match '%.dbout$'
         then
-          vim.wo[winnr].number = false
-          vim.wo[winnr].relativenumber = false
           vim.wo[winnr].signcolumn = 'no'
-          vim.wo[winnr].statuscolumn = ' '
           -- Disable neominimap for this buffer
           vim.b[bufnr].neominimap_disable = true
           -- Also try to disable via command if available

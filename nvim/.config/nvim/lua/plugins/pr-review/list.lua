@@ -104,7 +104,7 @@ function M.open()
 
         pickers
           .new({}, {
-            prompt_title = 'open PRs: ' .. repo.nwo,
+            prompt_title = 'open PRs: ' .. repo.nwo .. '  (<CR> view · <C-o> checkout)',
             finder = finders.new_table { results = prs, entry_maker = entry_maker },
             sorter = conf.generic_sorter {},
             previewer = previewers.new_buffer_previewer {
@@ -128,8 +128,8 @@ function M.open()
                   require('plugins.pr-review.session').checkout(selection.value)
                 end
               end
-              map('i', '<C-o>', checkout)
-              map('n', '<C-o>', checkout)
+              map('i', '<C-o>', checkout, { desc = 'checkout PR & review locally' })
+              map('n', '<C-o>', checkout, { desc = 'checkout PR & review locally' })
               return true
             end,
           })

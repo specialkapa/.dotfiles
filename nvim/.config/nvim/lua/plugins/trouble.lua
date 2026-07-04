@@ -39,7 +39,7 @@ return {
         preview = {
           type = 'float',
           relative = 'editor',
-          border = 'rounded',
+          border = require('utils.ui').border,
           title = ' Preview ',
           title_pos = 'center',
           position = { -1, -2 },
