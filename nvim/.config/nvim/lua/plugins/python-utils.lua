@@ -314,12 +314,7 @@ return {
       end
 
       local function set_keymap(bufnr)
-        vim.keymap.set(
-          'n',
-          '<leader>ri',
-          fix_imports(bufnr),
-          { buffer = bufnr, desc = '[R]uff fix [I]mports', noremap = true, silent = true }
-        )
+        vim.keymap.set('n', '<leader>ri', fix_imports(bufnr), { buffer = bufnr, desc = '[R]uff fix [I]mports', noremap = true, silent = true })
       end
 
       local group = vim.api.nvim_create_augroup('RuffFixImports', { clear = true })
