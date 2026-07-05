@@ -194,11 +194,10 @@ return {
 
     vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
     vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
-    map_pretty_files('<leader>sf', 'find_files', '[S]earch [F]iles')
+    -- NOTE: <leader>sf ([S]earch [F]iles) is now handled by fff.nvim (see plugins/fff.lua).
     vim.keymap.set('n', '<leader>fdd', find_directory_and_focus, { desc = '[F]ocus [DD]ir in tree' })
     vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
-    map_pretty_grep('<leader>sw', 'grep_string', '[S]earch current [W]ord')
-    map_pretty_grep('<leader>sg', 'live_grep', '[S]earch by [G]rep')
+    -- NOTE: <leader>sw / <leader>sg (grep word / by grep) are now handled by fff.nvim.
     vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
     vim.keymap.set('n', '<leader>sR', builtin.lsp_references, { desc = '[S]earch LSP [R]eferences' })
     vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
