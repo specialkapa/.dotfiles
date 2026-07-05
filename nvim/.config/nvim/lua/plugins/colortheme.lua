@@ -65,7 +65,7 @@ return {
       default_integrations = true,
       auto_integrations = false,
       integrations = {
-        barbar = true,
+        bufferline = true,
         cmp = true,
         gitsigns = true,
         nvimtree = true,
