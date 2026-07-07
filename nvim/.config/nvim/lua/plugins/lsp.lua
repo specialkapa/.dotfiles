@@ -65,6 +65,19 @@ return {
         --  For example, in C this would take you to the header.
         map('gD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
 
+        -- Hover documentation. The CursorHold autocmd (see lua/core/options.lua)
+        -- auto-opens a non-focusable diagnostic float when the cursor rests on a
+        -- diagnostic; close it first so it doesn't overlap the hover window.
+        map('K', function()
+          for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+            local cfg = vim.api.nvim_win_get_config(win)
+            if cfg.relative ~= '' and cfg.focusable == false then
+              pcall(vim.api.nvim_win_close, win, true)
+            end
+          end
+          vim.lsp.buf.hover()
+        end, 'Hover Documentation')
+
         -- The following two autocommands are used to highlight references of the
         -- word under your cursor when your cursor rests there for a little while.
         --    See `:help CursorHold` for information about when this is executed

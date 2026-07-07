@@ -103,6 +103,13 @@ vim.cmd [[
 vim.api.nvim_create_autocmd('CursorHold', {
   pattern = '*',
   callback = function()
+    -- Don't stack the diagnostic float on top of an already-open float (e.g. the
+    -- LSP hover window from `K`); it would cover the info you actually asked for.
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.api.nvim_win_get_config(win).relative ~= '' then
+        return
+      end
+    end
     vim.diagnostic.open_float(nil, { focusable = false })
   end,
 })

@@ -18,6 +18,9 @@ return {
     -- pin the plugin at specific version for stability
     -- backup your bookmark sqlite db when there are breaking changes (major version change)
     tag = '3.2.0',
+    -- Defer loading until a real file is opened; the plugin's BufEnter autocmd (registered in
+    -- setup) then places gutter signs on that first buffer, so nothing is lost vs. eager loading.
+    event = { 'BufReadPost', 'BufNewFile' },
     dependencies = {
       { 'kkharji/sqlite.lua' },
       { 'nvim-telescope/telescope.nvim' },
