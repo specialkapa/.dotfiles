@@ -36,7 +36,6 @@ return { -- Autocompletion
     'hrsh7th/cmp-path',
     'hrsh7th/cmp-cmdline',
     'dmitmel/cmp-cmdline-history',
-    'rcarriga/cmp-dap',
   },
   config = function()
     -- See `:help cmp`
@@ -186,7 +185,6 @@ return { -- Autocompletion
         { name = 'luasnip' },
         { name = 'buffer' },
         { name = 'path' },
-        { name = 'dap' },
       },
       formatting = {
         fields = { 'kind', 'abbr', 'menu' },
@@ -202,7 +200,16 @@ return { -- Autocompletion
         end,
       },
       enabled = function()
-        return vim.api.nvim_buf_get_option(0, 'buftype') ~= 'prompt' or require('cmp_dap').is_dap_buffer()
+        -- Enable cmp everywhere except prompt buffers, where it's usually noise.
+        -- The one exception is a DAP prompt (the debug REPL): re-enable it there.
+        -- Crucially, consult cmp_dap only if it's ALREADY loaded -- calling
+        -- `require('cmp_dap')` unconditionally is what used to drag the whole
+        -- nvim-dap stack (~220ms) into the first InsertEnter of every session.
+        if vim.api.nvim_get_option_value('buftype', { buf = 0 }) ~= 'prompt' then
+          return true
+        end
+        local cmp_dap = package.loaded['cmp_dap']
+        return cmp_dap ~= nil and cmp_dap.is_dap_buffer()
       end,
     }
 
@@ -221,6 +228,16 @@ return { -- Autocompletion
       mapping = cmp.mapping.preset.cmdline(),
       sources = {
         { name = 'buffer' },
+      },
+    })
+
+    -- Completion in DAP prompt buffers (the debug REPL / watch / hover prompts).
+    -- Only the source *name* is referenced here -- a plain string, so this costs
+    -- nothing and does NOT load nvim-dap. The actual 'dap' source is registered by
+    -- cmp-dap, which is lazy-loaded on the dap-repl filetype (see plugins/cmp-dap).
+    cmp.setup.filetype({ 'dap-repl', 'dapui_watches', 'dapui_hover' }, {
+      sources = {
+        { name = 'dap' },
       },
     })
   end,
