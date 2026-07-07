@@ -44,6 +44,22 @@ config.wsl_domains = {
 	},
 }
 
+-- ── Ad-hoc PowerShell (default stays WSL bash) ───────────────────────────────
+-- default_domain above keeps every new tab in WSL. These launch_menu entries let
+-- us spawn a Windows shell *on demand* without changing that default. Each entry
+-- pins domain = "local" (the Windows-native domain) — without it WezTerm would try
+-- to run powershell.exe *inside* the WSL distro (the default domain) and fail.
+-- Reach them three ways:
+--   • Ctrl+Shift+L         → the launch-menu palette (pick an entry)
+--   • the ⌄ new-tab button → dropdown lists these entries
+--   • LEADER p s / LEADER p w  (see keybindings below) → spawn directly
+-- pwsh.exe is PowerShell 7+ (if installed); powershell.exe is the built-in 5.1.
+config.launch_menu = {
+	{ label = "PowerShell", args = { "powershell.exe" }, domain = { DomainName = "local" } },
+	{ label = "PowerShell 7 (pwsh)", args = { "pwsh.exe" }, domain = { DomainName = "local" } },
+	{ label = "Command Prompt", args = { "cmd.exe" }, domain = { DomainName = "local" } },
+}
+
 -- ── GPU / rendering ──────────────────────────────────────────────────────────
 -- OpenGL (via ANGLE→D3D11 on Windows) instead of WebGpu: WebGpu's swapchain
 -- renders opaque on this setup, swallowing window_background_opacity. OpenGL
@@ -90,7 +106,7 @@ config.adjust_window_size_when_changing_font_size = false
 -- 0.85 = clearly see-through; Acrylic adds the Windows 11 blur behind it so text
 -- stays legible. Swap 'Acrylic' for 'Mica'/'Tabbed' to taste, or 'Disabled' for
 -- flat transparency. Has no effect on Windows 10 (it'll just be plain opacity).
-config.window_background_opacity = 0.85
+config.window_background_opacity = 0.86
 -- Acrylic blur is opt-in: it needs Windows 11 with "Transparency effects" ON
 -- (Settings ▸ Personalization ▸ Colors), no Battery Saver, and it can fail to
 -- compose under the WebGpu front-end — when it fails it leaves the window fully
@@ -101,8 +117,8 @@ config.window_background_opacity = 0.85
 config.scrollback_lines = 10000
 config.audible_bell = "Disabled"
 config.window_close_confirmation = "NeverPrompt"
--- Refresh the status line (and thus the mode badge + clock) twice a second so
--- entering/leaving a key table reflects promptly.
+-- Refresh the status line (mode badge + pomodoro countdown) twice a second so
+-- entering/leaving a key table and the pomodoro tick reflect promptly.
 config.status_update_interval = 500
 
 -- Adjust window opacity live via per-window config overrides. Starts from the
@@ -220,19 +236,22 @@ end)
 -- it. The 1s timeout means a slow second keypress just cancels the prefix.
 config.leader = { key = "Space", mods = "CTRL", timeout_milliseconds = 1000 }
 
--- ── Seamless nvim ⇄ WezTerm pane navigation (letieu/wezterm-move.nvim) ────────
+-- ── Seamless nvim ⇄ WezTerm pane navigation ──────────────────────────────────
 -- Ctrl+h/j/k/l moves between *both* nvim splits and WezTerm panes. WezTerm checks
--- whether the focused pane is running nvim/vim: if so it forwards the keystroke
--- and the wezterm-move.nvim plugin drives the nvim side (it `wincmd`s between
--- splits and shells out to `wezterm.exe cli activate-pane-direction` once nvim is
--- at its edge); otherwise WezTerm switches panes itself. This is why the old
--- Alt+Arrow pane nav — which shadowed shell/nvim word-motion — is gone. Requires
--- the nvim plugin for the forwarding half; if process detection ever misfires the
--- worst case is a harmless pane switch instead of a split move.
+-- whether the focused pane is running nvim: if so it forwards the keystroke and
+-- nvim's own <C-h/j/k/l> → :wincmd maps move between splits; otherwise WezTerm
+-- switches panes itself. This is why the old Alt+Arrow pane nav — which shadowed
+-- shell/nvim word-motion — is gone.
+--
+-- Detection is via the IS_NVIM pane user variable, which nvim sets over the pty on
+-- startup (see the autocmd in nvim's core/keymaps.lua) and clears on exit. We do
+-- NOT use get_foreground_process_info(): on WSL that only ever reports `wslhost.exe`,
+-- never `nvim`, so process-name detection silently fails and every key falls through
+-- to a plain pane switch. The user var rides the pty and is reliable everywhere.
+-- Note: crossing from nvim's *outer edge* into an adjacent WezTerm pane isn't handled
+-- here (that needs an nvim-side plugin); within nvim and between WezTerm panes works.
 local function is_vim(pane)
-	local info = pane:get_foreground_process_info()
-	local name = info and info.name
-	return name == "nvim" or name == "vim"
+	return pane:get_user_vars().IS_NVIM == "true"
 end
 
 local nav_dirs = { h = "Left", j = "Down", k = "Up", l = "Right" }
@@ -253,6 +272,39 @@ local function build_nav_keys()
 	end
 	return keys
 end
+
+-- ── Mode activation + idle auto-clear ────────────────────────────────────────
+-- A key table with one_shot=false + timeout_milliseconds auto-pops after 1s of
+-- inactivity (the timer resets on each matching key). The pop happens, but WezTerm
+-- doesn't reliably repaint the status bar while the window is idle, so the mode
+-- badge can linger until you next interact. activate_mode wraps the activation and
+-- kicks off poll_mode_badge: a self-terminating timer that, while *any* key table
+-- is active, forces a tabline refresh a few times a second (set_status →
+-- set_left_status forces a repaint). call_after timers fire independent of the
+-- render loop, so the badge clears during idle too. Forward-declared because the
+-- closure is built when config.keys is constructed (above mode_label's definition);
+-- the upvalues are assigned later, before any keypress can invoke them.
+local refresh_sections, poll_mode_badge
+local function activate_mode(name)
+	return wezterm.action_callback(function(window, pane)
+		window:perform_action(
+			act.ActivateKeyTable({ name = name, one_shot = false, timeout_milliseconds = 1000 }),
+			pane
+		)
+		poll_mode_badge(window)
+	end)
+end
+
+-- Rename the active tab inline. Extracted from the Ctrl+Shift+, binding so both it
+-- and the LEADER ? cheatsheet (below) can fire the exact same prompt.
+local rename_tab_action = act.PromptInputLine({
+	description = "Rename tab:",
+	action = wezterm.action_callback(function(window, _, line)
+		if line and line ~= "" then
+			window:active_tab():set_title(line)
+		end
+	end),
+})
 
 -- ── Keybindings (Windows-Terminal-flavoured, layered on the stock defaults) ──
 -- Only the bindings below are overridden; everything else keeps WezTerm's
@@ -278,19 +330,9 @@ config.keys = {
 
 	-- Rename the active tab inline (Ctrl+Shift+,). phys:Comma matches the physical
 	-- key so Shift turning ',' into '<' doesn't break it. (Note: it's the comma
-	-- key, not the period key.)
-	{
-		key = "phys:Comma",
-		mods = "CTRL|SHIFT",
-		action = act.PromptInputLine({
-			description = "Rename tab:",
-			action = wezterm.action_callback(function(window, _, line)
-				if line and line ~= "" then
-					window:active_tab():set_title(line)
-				end
-			end),
-		}),
-	},
+	-- key, not the period key.) The action lives in rename_tab_action above so the
+	-- LEADER ? cheatsheet can reuse it.
+	{ key = "phys:Comma", mods = "CTRL|SHIFT", action = rename_tab_action },
 
 	-- Command palette — same as WezTerm's default, but bound explicitly so it can't
 	-- depend on default-binding state (and to confirm it's not being shadowed here).
@@ -302,9 +344,13 @@ config.keys = {
 	--   LEADER r → resize panes (h/j/k/l or arrows)
 	--   LEADER f → font size + opacity
 	--   LEADER p → pomodoro control panel (s start/pause, n skip, r reset)
-	{ key = "r", mods = "LEADER", action = act.ActivateKeyTable({ name = "resize_pane", one_shot = false }) },
-	{ key = "f", mods = "LEADER", action = act.ActivateKeyTable({ name = "font_zoom", one_shot = false }) },
-	{ key = "p", mods = "LEADER", action = act.ActivateKeyTable({ name = "pomodoro", one_shot = false }) },
+	-- Each mode auto-pops back to normal after 1s of inactivity (timer resets on each
+	-- keypress, so an in-use mode stays put). activate_mode also forces the badge to
+	-- clear on idle — see its definition above. Matches the leader timeout, so an
+	-- enabled-but-unused mode never lingers.
+	{ key = "r", mods = "LEADER", action = activate_mode("resize_pane") },
+	{ key = "f", mods = "LEADER", action = activate_mode("font_zoom") },
+	{ key = "p", mods = "LEADER", action = activate_mode("pomodoro") },
 
 	-- Copy mode (COPY badge) and search (SEARCH badge), tmux-style on the leader:
 	-- LEADER [ enters copy mode, LEADER / starts search. The stock Ctrl+Shift+X /
@@ -312,12 +358,82 @@ config.keys = {
 	-- built-in vim motions (h/j/k/l, v, y) apply.
 	{ key = "[", mods = "LEADER", action = act.ActivateCopyMode },
 	{ key = "/", mods = "LEADER", action = act.Search("CurrentSelectionOrEmptyString") },
+
+	-- Ad-hoc Windows shells (default stays WSL bash — see launch_menu above):
+	--   LEADER w → new PowerShell tab (pwsh.exe if present, else powershell.exe)
+	--   LEADER L → the launch-menu palette (same as Ctrl+Shift+L), to pick cmd/etc.
+	{
+		key = "w",
+		mods = "LEADER",
+		action = act.SpawnCommandInNewTab({ args = { "powershell.exe" }, domain = { DomainName = "local" } }),
+	},
+	{ key = "L", mods = "LEADER", action = act.ShowLauncherArgs({ flags = "LAUNCH_MENU_ITEMS" }) },
 }
 
 -- Append the seamless Ctrl+h/j/k/l navigation keys defined above.
 for _, k in ipairs(build_nav_keys()) do
 	table.insert(config.keys, k)
 end
+
+-- ── LEADER ? : keybinding cheatsheet ─────────────────────────────────────────
+-- A fuzzy-searchable overlay of our custom bindings — the answer to "what did I map
+-- that to again?". Stock defaults are omitted (discover those via Ctrl+Shift+P). It's
+-- more than a reminder: selecting an entry *runs* its action, so the sheet doubles as
+-- a launcher. Each row pairs a human label with the real action object; InputSelector
+-- hands back the chosen id (its 1-based index) and we perform_action that entry's
+-- action. Rows with action = nil are pure reference lines — Enter just dismisses.
+-- Keep this list in sync when you add/change a binding above.
+local cheatsheet = {
+	{ keys = "LEADER r", desc = "Resize-pane mode (h/j/k/l or arrows)", action = activate_mode("resize_pane") },
+	{ keys = "LEADER f", desc = "Font-size + opacity mode (j/k · -/= · 0 reset · h/l opacity)", action = activate_mode("font_zoom") },
+	{ keys = "LEADER p", desc = "Pomodoro mode (s start/pause · n skip · r reset)", action = activate_mode("pomodoro") },
+	{ keys = "LEADER [", desc = "Copy mode (vim motions · v select · y yank)", action = act.ActivateCopyMode },
+	{ keys = "LEADER /", desc = "Search scrollback", action = act.Search("CurrentSelectionOrEmptyString") },
+	{ keys = "LEADER w", desc = "New PowerShell tab", action = act.SpawnCommandInNewTab({ args = { "powershell.exe" }, domain = { DomainName = "local" } }) },
+	{ keys = "LEADER L", desc = "Launch menu (pick cmd / pwsh / …)", action = act.ShowLauncherArgs({ flags = "LAUNCH_MENU_ITEMS" }) },
+	{ keys = "Alt+Shift+-", desc = "Split pane down (stacked)", action = act.SplitVertical({ domain = "CurrentPaneDomain" }) },
+	{ keys = "Alt+Shift+=", desc = "Split pane right (side by side)", action = act.SplitHorizontal({ domain = "CurrentPaneDomain" }) },
+	{ keys = "Ctrl+Shift+]", desc = "More opaque", action = adjust_opacity(0.05) },
+	{ keys = "Ctrl+Shift+[", desc = "More transparent", action = adjust_opacity(-0.05) },
+	{ keys = "Ctrl+Shift+\\", desc = "Reset opacity", action = adjust_opacity(nil) },
+	{ keys = "Ctrl+Shift+,", desc = "Rename tab", action = rename_tab_action },
+	{ keys = "Ctrl+Shift+P", desc = "Command palette (all commands)", action = act.ActivateCommandPalette },
+	{ keys = "Ctrl+Shift+T", desc = "New tab", action = act.SpawnTab("CurrentPaneDomain") },
+	{ keys = "Ctrl+Shift+W", desc = "Close tab", action = act.CloseCurrentTab({ confirm = true }) },
+	{ keys = "Ctrl+Shift+Z", desc = "Zoom / unzoom pane", action = act.TogglePaneZoomState },
+	{ keys = "Ctrl+h/j/k/l", desc = "Move between panes / nvim splits (reference)", action = nil },
+	{ keys = "Ctrl+Space", desc = "Leader prefix — press, then a LEADER key above (reference)", action = nil },
+}
+
+local function open_cheatsheet()
+	local choices = {}
+	for i, e in ipairs(cheatsheet) do
+		choices[i] = { id = tostring(i), label = string.format("%-14s  %s", e.keys, e.desc) }
+	end
+	return act.InputSelector({
+		title = "Keybindings — type to filter · Enter to run",
+		fuzzy = true,
+		choices = choices,
+		action = wezterm.action_callback(function(window, pane, id, _label)
+			if not id then
+				return -- cancelled (Esc)
+			end
+			local entry = cheatsheet[tonumber(id)]
+			if entry and entry.action then
+				window:perform_action(entry.action, pane)
+			end
+		end),
+	})
+end
+
+-- Bind the cheatsheet on LEADER ?. '?' is Shift+/, and Windows/WezTerm is
+-- inconsistent about whether the SHIFT is reported alongside the resolved '?'
+-- character — so register BOTH mod combos, plus the physical-key form, to be safe.
+-- (Building the selector once and reusing it keeps all three in sync.)
+local cheatsheet_action = open_cheatsheet()
+table.insert(config.keys, { key = "?", mods = "LEADER", action = cheatsheet_action })
+table.insert(config.keys, { key = "?", mods = "LEADER|SHIFT", action = cheatsheet_action })
+table.insert(config.keys, { key = "phys:Slash", mods = "LEADER|SHIFT", action = cheatsheet_action })
 
 -- ── Modal key tables ─────────────────────────────────────────────────────────
 -- Each is entered by a chord above and stays active (one_shot=false) until you
@@ -370,11 +486,15 @@ config.key_tables = {
 
 -- Mode component: friendly labels for our key tables + the WezTerm built-ins,
 -- so section A reads RESIZE/FONT/COPY/SEARCH instead of the raw table name.
+-- Returns nil in plain normal mode — the update-status handler reads that as "hide
+-- section A entirely" (a "" string would leave a stray coloured stub + separator,
+-- the same tabline length-gating gotcha as the workspace section).
+local leader_prefix = utf8.char(0x1f30a) -- 🌊 shown while the leader prefix is armed
 local function mode_label(window)
-	-- Show LEADER while the prefix is armed (until the next key or the timeout), so
+	-- Leader armed (until the next key or the timeout): just the wave glyph, so
 	-- there's visual confirmation the chord was caught.
 	if window:leader_is_active() then
-		return "LEADER"
+		return leader_prefix
 	end
 	local m = window:active_key_table()
 	if m == "resize_pane" then
@@ -388,7 +508,7 @@ local function mode_label(window)
 	elseif m == "pomodoro" then
 		return "POMO"
 	end
-	return "NORMAL"
+	return nil -- normal mode: section A hidden entirely
 end
 
 -- ── Mouse: Ctrl+click to open links (Windows-Terminal muscle memory) ─────────
@@ -414,8 +534,26 @@ config.mouse_bindings = {
 -- the URL to Windows' FileProtocolHandler via rundll32 (cwd-independent), and
 -- return false to suppress the broken default. Other schemes use the default.
 wezterm.on("open-uri", function(_, _, uri)
+	-- DIAGNOSTIC (temporary): record every invocation + spawn result so we can tell
+	-- whether the event even fires and whether the spawn raised. Writes to the same
+	-- Windows cache dir the other features use. Remove once links are confirmed working.
+	local function dbg(msg)
+		pcall(function()
+			local home = os.getenv("USERPROFILE")
+			if not home then
+				return
+			end
+			local f = io.open(home .. "\\.cache\\wezterm-openuri.log", "a")
+			if f then
+				f:write(os.date("%H:%M:%S") .. " " .. msg .. "\n")
+				f:close()
+			end
+		end)
+	end
+	dbg("open-uri fired: " .. tostring(uri))
 	if uri:match("^https?://") then
-		wezterm.background_child_process({ "rundll32.exe", "url.dll,FileProtocolHandler", uri })
+		local ok, err = pcall(wezterm.background_child_process, { "explorer.exe", uri })
+		dbg("explorer spawn ok=" .. tostring(ok) .. " err=" .. tostring(err))
 		return false
 	end
 end)
@@ -459,155 +597,25 @@ local p = wezterm.gui.get_appearance():find("Dark") and catppuccin.mocha or catp
 -- Purple-family scheme: violet NORMAL badge + workspace, deeper purple active
 -- tab (mauve), muted surface inactive, surface1 hover, mantle bar, peach accent
 -- for active modes. violet/orchid are deeper-purple shades for variety.
+--
+-- The `z` key colours the right-side pomodoro section. tabline defaults section Z
+-- to the `a` (badge) colour — a filled violet/peach block. We pin z to the same
+-- colours as `c` (the mantle bar background) so the pomodoro text sits flush on
+-- the bar with NO highlight block, and its left slant separator (fg = z.bg,
+-- bg = c.bg) becomes mantle-on-mantle → invisible. pomo_status sets its own
+-- per-state foreground, so z.fg here is just the fallback.
 local normal_section = {
 	a = { fg = p.crust, bg = p.violet },
 	b = { fg = p.violet, bg = p.surface0 },
 	c = { fg = p.text, bg = p.mantle },
+	z = { fg = p.text, bg = p.mantle },
 }
 local peach_section = {
 	a = { fg = p.crust, bg = p.peach },
 	b = { fg = p.peach, bg = p.surface0 },
 	c = { fg = p.text, bg = p.mantle },
+	z = { fg = p.text, bg = p.mantle },
 }
-
--- Battery component coloured by charge level: red ≤20%, yellow ≤50%, green above
--- (and green while charging). Custom function because the built-in battery
--- component can't recolour per level. Returns FormatItems; empty on desktops.
-local function battery_status()
-	local info = wezterm.battery_info()
-	local b = info and info[1]
-	if not b then
-		return ""
-	end
-	local pct = math.floor((b.state_of_charge or 0) * 100 + 0.5)
-	local charging = (b.state == "Charging" or b.state == "Full")
-	local col = p.green
-	if not charging then
-		if pct <= 20 then
-			col = p.red
-		elseif pct <= 50 then
-			col = p.yellow
-		end
-	end
-	local glyph
-	if charging then
-		glyph = wezterm.nerdfonts.md_battery_charging
-	else
-		local tens = math.floor(pct / 10) * 10
-		if tens >= 100 then
-			glyph = wezterm.nerdfonts.md_battery
-		elseif tens <= 0 then
-			glyph = wezterm.nerdfonts.md_battery_alert_variant_outline
-		else
-			glyph = wezterm.nerdfonts["md_battery_" .. tens]
-		end
-	end
-	glyph = glyph or wezterm.nerdfonts.md_battery or ""
-	return wezterm.format({
-		{ Foreground = { Color = col } },
-		{ Text = glyph .. " " .. pct .. "% " },
-	})
-end
-
--- Next Outlook calendar event, read from a cache file refreshed on shell startup
--- (scripts/refresh-next-event.sh → %USERPROFILE%\.cache\wezterm-next-event). Just
--- a file read + countdown — no process spawning in the render path. Reddens as
--- the meeting nears. On a non-Windows host (where the Outlook/WSL pipeline can't
--- run) it shows a muted "cal n/a" reminder so future-me knows to port it; with a
--- host but no event/cache yet it renders nothing.
-local function next_event()
-	local home = os.getenv("USERPROFILE") -- Windows host home; nil off-Windows
-	if not home then
-		return wezterm.format({
-			{ Foreground = { Color = p.yellow } },
-			{ Text = (wezterm.nerdfonts.md_calendar_alert or "") .. " cal n/a" },
-		})
-	end
-	local ok, line = pcall(function()
-		local f = io.open(home .. "\\.cache\\wezterm-next-event", "r")
-		if not f then
-			return nil
-		end
-		local l = f:read("*l")
-		f:close()
-		return l
-	end)
-	if not ok or not line or line == "" then
-		return ""
-	end
-	local epoch, subject = line:match("^(%d+)|(.+)$")
-	if not epoch then
-		return ""
-	end
-	local mins = math.floor((tonumber(epoch) - os.time()) / 60)
-	if mins < -2 then
-		return "" -- already started a while ago; drop it
-	end
-	local when
-	if mins <= 0 then
-		when = "now"
-	elseif mins < 60 then
-		when = mins .. "m"
-	else
-		when = math.floor(mins / 60) .. "h" .. string.format("%02dm", mins % 60)
-	end
-	local col = p.subtext0
-	if mins <= 5 then
-		col = p.red
-	elseif mins <= 15 then
-		col = p.peach
-	end
-	return wezterm.format({
-		{ Foreground = { Color = col } },
-		{
-			Text = (" " .. wezterm.nerdfonts.md_calendar_clock or "")
-				.. " "
-				.. wezterm.truncate_right(subject, 22)
-				.. " "
-				.. when
-				.. " ",
-		},
-	})
-end
-
--- Count of GitHub PRs awaiting my review, read from a cache refreshed on shell
--- startup (scripts/refresh-gh-prs.sh — works anywhere gh exists). File read only,
--- no spawning at render. Cache states: a number (count), or "auth"/"perm"/"err"
--- → a concise message, or empty/missing → hidden (e.g. gh not installed).
-local function gh_prs()
-	local win = os.getenv("USERPROFILE")
-	local home = win or os.getenv("HOME")
-	if not home then
-		return ""
-	end
-	local sep = win and "\\" or "/"
-	local ok, val = pcall(function()
-		local f = io.open(home .. sep .. ".cache" .. sep .. "wezterm-gh-prs", "r")
-		if not f then
-			return nil
-		end
-		local l = f:read("*l")
-		f:close()
-		return l
-	end)
-	if not ok or not val or val == "" then
-		return "" -- gh missing / no cache yet → hide the section
-	end
-	local icon = wezterm.nerdfonts.oct_git_pull_request or ""
-	if val == "auth" then
-		return wezterm.format({ { Foreground = { Color = p.yellow } }, { Text = icon .. " gh: login" } })
-	elseif val == "perm" then
-		return wezterm.format({ { Foreground = { Color = p.yellow } }, { Text = icon .. " gh: no scope" } })
-	elseif val == "err" then
-		return wezterm.format({ { Foreground = { Color = p.yellow } }, { Text = icon .. " gh: err" } })
-	end
-	local n = tonumber(val)
-	if not n then
-		return ""
-	end
-	local col = (n > 0) and p.peach or p.subtext0
-	return wezterm.format({ { Foreground = { Color = col } }, { Text = icon .. " " .. n } })
-end
 
 -- Pomodoro countdown, read from wezterm.GLOBAL (set by the control functions and the
 -- update-status boundary handler above). Empty when idle. Colours: work text → peach in
@@ -644,34 +652,95 @@ local function pomo_status()
 	})
 end
 
--- Combine pomodoro + battery + next_event into ONE section-X component so tabline
--- doesn't draw a component separator between them (keeps the clock's section
--- separators). Order: pomodoro, battery, PRs, next-event. Empty parts are skipped so
--- there are no stray spaces or separators — an absent part leaves the rest untouched.
-local function right_extras(window, pane)
-	local parts = {}
-	for _, v in ipairs({ pomo_status(), battery_status(window, pane), gh_prs(window, pane), next_event(window, pane) }) do
-		if v ~= "" then
-			parts[#parts + 1] = v
+-- Show the workspace section (tabline_b) only when more than one workspace exists;
+-- otherwise hide it entirely (the default lone "default" workspace is just noise).
+-- tabline re-reads config.sections every render, so flipping this table live
+-- adds/removes the whole section — background block AND separators — with no
+-- artifacts. NOTE: windows and separate WezTerm instances are NOT workspaces, so
+-- this only lights up once you create a *named* workspace. Registered before
+-- tabline.setup so it runs before tabline's own render handler each cycle (no
+-- one-frame lag). Returning "" from a function component would NOT work here:
+-- tabline gates sections on array length, so an empty-string component still draws
+-- a stray coloured stub + separator.
+-- NOTE: require only tabline.config here, NOT tabline.component — component.lua
+-- reads config.opts at load time, which tabline.setup() hasn't populated yet, so
+-- requiring it now crashes. The poll uses the plugin's public tabline.refresh()
+-- (which loads the component lazily, after setup) instead.
+local tabline_config = require("tabline.config")
+
+-- Recompute the dynamic sections (A = mode, B = workspace) from current state.
+-- Used by both the periodic update-status event and poll_mode_badge's timer.
+refresh_sections = function(window)
+	if not tabline_config.sections then
+		return -- setup hasn't populated sections yet
+	end
+	-- Section B (workspace): only with 2+ workspaces (see comment above).
+	local multi = #wezterm.mux.get_workspace_names() > 1
+	tabline_config.sections.tabline_b = multi and { "workspace" } or {}
+	-- Section A (mode): hidden entirely in plain normal mode; shows the 🌊 leader
+	-- glyph while the prefix is armed, or the key-table label (RESIZE/FONT/…) when a
+	-- mode is active. mode_label returns nil in normal mode → empty section (NOTE:
+	-- must stay nil-safe — `nil .. " "` would throw and abort the handler, leaving a
+	-- stale badge). The Text element inherits section A's attributes (tabline colours
+	-- them by the real mode: violet normal, peach in a key table).
+	local m = mode_label(window)
+	tabline_config.sections.tabline_a = m and { { Text = " " .. m .. " " } } or {}
+	-- Section Z (pomodoro): the ONLY right-side component now. Gate it like A/B —
+	-- present only while a pomodoro is running, else hidden entirely. A static
+	-- { pomo_status } would leave a stray coloured stub + separator on the right
+	-- edge when idle (pomo_status returns ""), the same length-gating gotcha.
+	tabline_config.sections.tabline_z = pomo_get() and { pomo_status } or {}
+end
+
+-- While any key table is active, force a tabline refresh a few times a second so the
+-- mode badge clears promptly once the table auto-pops — even if WezTerm isn't
+-- repainting an otherwise-idle window. Self-terminating; guarded so only one loop
+-- runs per window. call_after timers fire independent of the render loop.
+local mode_poll = {} -- [window-id] = true while a poll loop is running for it
+poll_mode_badge = function(window)
+	local id = window:window_id()
+	if mode_poll[id] then
+		return
+	end
+	mode_poll[id] = true
+	local function tick()
+		local ok, active = pcall(function()
+			refresh_sections(window)
+			tabline.refresh(window) -- forces set_status → set_left_status → repaint
+			return window:active_key_table() ~= nil
+		end)
+		if ok and active then
+			wezterm.time.call_after(0.25, tick)
+		else
+			mode_poll[id] = nil -- table popped (or window gone): stop polling
 		end
 	end
-	return table.concat(parts, " ")
+	wezterm.time.call_after(0.25, tick)
 end
+
+wezterm.on("update-status", function(window)
+	refresh_sections(window)
+end)
 
 tabline.setup({
 	options = {
 		icons_enabled = true,
 		theme = scheme_for(wezterm.gui.get_appearance()),
 		tabs_enabled = true,
-		-- Slanted tabs using the forward-diagonal pair (upper-left + lower-right),
-		-- which matches tabline's separator colouring direction. If this still
-		-- renders with notches/gaps, the slant glyphs are a font-rendering issue —
-		-- fall back to the reliable full-cell hard arrows:
-		--   left = wezterm.nerdfonts.pl_left_hard_divider,
-		--   right = wezterm.nerdfonts.pl_right_hard_divider,
+		-- No slanted separators: tabs are plain rectangular blocks. The active tab is
+		-- a solid mauve block, inactive tabs a muted surface0 block (see theme_overrides
+		-- below), sitting directly adjacent with no diagonal glyph between them — the
+		-- colour change alone delineates them. Empty strings disable tabline's
+		-- separator glyph entirely.
 		tab_separators = {
-			left = wezterm.nerdfonts.ple_upper_left_triangle,
-			right = wezterm.nerdfonts.ple_lower_right_triangle,
+			left = "",
+			right = "",
+		},
+		-- Likewise no slant on the section separators (mode/workspace badge, pomodoro
+		-- block): plain block edges, no diagonal glyph.
+		section_separators = {
+			left = "",
+			right = "",
 		},
 		theme_overrides = {
 			normal_mode = normal_section,
@@ -683,17 +752,19 @@ tabline.setup({
 			pomodoro_mode = peach_section,
 			tab = {
 				active = { fg = p.crust, bg = p.mauve },
+				-- Inactive tabs are a muted filled block (surface0), distinct from
+				-- both the mantle bar and the mauve active tab — the bufferline
+				-- 'slant' look. Hover lifts them a touch (surface1).
 				inactive = { fg = p.subtext0, bg = p.surface0 },
 				inactive_hover = { fg = p.text, bg = p.surface1 },
 			},
 		},
 	},
 	sections = {
-		tabline_a = {
-			function(window)
-				return "  " .. mode_label(window)
-			end,
-		},
+		-- Sections A (mode) and B (workspace) are governed live by the update-status
+		-- handler above (hidden in normal mode / single workspace). These are just the
+		-- initial values before the first render tick.
+		tabline_a = {},
 		tabline_b = { "workspace" },
 		tabline_c = { " " },
 		tab_active = {
@@ -704,16 +775,24 @@ tabline.setup({
 			{ "zoomed", padding = 0 },
 		},
 		tab_inactive = {
+			-- Mirror tab_active so an inactive tab keeps the same directory label
+			-- instead of the `process` name — which on WSL is always the useless
+			-- "wsl"/wslhost, and which also stamps a leading app icon on the tab.
+			-- index + parent/cwd carry no icon-bearing components, so inactive tabs
+			-- read exactly like the active one, with no leading glyph.
 			"index",
-			{ "process", padding = { left = 0, right = 1 } },
-			{ "output", padding = 0, icon = { wezterm.nerdfonts.md_bell_ring, color = { fg = p.orchid } } },
+			{ "parent", padding = 0 },
+			"/",
+			{ "cwd", padding = { left = 0, right = 1 } },
 		},
-		-- battery + calendar merged into one component (right_extras) so there's no
-		-- separator between them; calendar still sits between battery and the clock.
-		-- The clock (Y) keeps its own section separators.
-		tabline_x = { right_extras },
-		tabline_y = { "datetime" },
-		tabline_z = { "domain" },
+		-- Right side stripped down to just the pomodoro countdown (the clock,
+		-- domain, and PR counter were removed). tabline_z holds it, flush to the
+		-- right edge, but is governed live by refresh_sections above: present only
+		-- while a pomodoro runs, {} (hidden) when idle. These are just the initial
+		-- values before the first render tick — idle at startup, so all empty.
+		tabline_x = {},
+		tabline_y = {},
+		tabline_z = {},
 	},
 	extensions = {},
 })
