@@ -68,8 +68,8 @@ vim.keymap.set('n', '<Left>', ':vertical resize -2<CR>', opts)
 vim.keymap.set('n', '<Right>', ':vertical resize +2<CR>', opts)
 
 -- Buffers
-vim.keymap.set('n', '<Tab>', ':bnext<CR>', opts)
-vim.keymap.set('n', '<S-Tab>', ':bprevious<CR>', opts)
+vim.keymap.set('n', '<Tab>', '<Cmd>BufferLineCycleNext<CR>', opts) -- next buffer in visual (tabline) order
+vim.keymap.set('n', '<S-Tab>', '<Cmd>BufferLineCyclePrev<CR>', opts) -- previous buffer in visual (tabline) order
 vim.keymap.set('n', '<leader>x', ':bdelete!<CR>', with_desc 'Close buffer') -- close buffer
 vim.keymap.set('n', '<leader>b', '<cmd> enew <CR>', with_desc 'New [B]uffer') -- new buffer
 
@@ -110,11 +110,11 @@ vim.keymap.set('n', '<leader>to', ':tabnew<CR>', with_desc 'Open new [T]tab') --
 vim.keymap.set('n', '<leader>tx', ':tabclose<CR>', with_desc 'Close current [T]ab') -- close current tab
 vim.keymap.set('n', '<leader>tn', ':tabn<CR>', with_desc 'Go to [N]ext [T]ab') --  go to next tab
 vim.keymap.set('n', '<leader>tp', ':tabp<CR>', with_desc 'Go to [R]revious [T]ab') --  go to previous tab
-vim.keymap.set('n', '<A-p>', '<Cmd>BufferPin<CR>', opts) -- pin/unpin buffer
-vim.keymap.set('n', '<C-p>', '<Cmd>BufferPick<CR>', opts) -- pick a buffer
-vim.keymap.set('n', '<C-A-p>', '<Cmd>BufferPickDelete<CR>', opts) -- pick a buffer
-vim.keymap.set('n', '<A-<>', '<Cmd>BufferMovePrevious<CR>', opts) -- move buffer left
-vim.keymap.set('n', '<A->>', '<Cmd>BufferMoveNext<CR>', opts) -- move buffer right
+vim.keymap.set('n', '<A-p>', '<Cmd>BufferLineTogglePin<CR>', opts) -- pin/unpin buffer
+vim.keymap.set('n', '<C-p>', '<Cmd>BufferLinePick<CR>', opts) -- pick a buffer
+vim.keymap.set('n', '<C-A-p>', '<Cmd>BufferLinePickClose<CR>', opts) -- pick a buffer to close
+vim.keymap.set('n', '<A-<>', '<Cmd>BufferLineMovePrev<CR>', opts) -- move buffer left
+vim.keymap.set('n', '<A->>', '<Cmd>BufferLineMoveNext<CR>', opts) -- move buffer right
 
 -- Stay in indent mode
 vim.keymap.set('v', '<', '<gv', opts)

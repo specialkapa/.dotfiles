@@ -200,7 +200,15 @@ return {
     -- NOTE: <leader>sw / <leader>sg (grep word / by grep) are now handled by fff.nvim.
     vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
     vim.keymap.set('n', '<leader>sR', builtin.lsp_references, { desc = '[S]earch LSP [R]eferences' })
-    vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
+    -- <leader>sr resumes whichever picker (fff or Telescope) was used most
+    -- recently; the autocmd stamps every Telescope open (fff stamps itself in
+    -- plugins/fff.lua). See utils.picker_resume.
+    local picker_resume = require 'utils.picker_resume'
+    vim.api.nvim_create_autocmd('User', {
+      pattern = 'TelescopeFindPre',
+      callback = function() picker_resume.mark 'telescope' end,
+    })
+    vim.keymap.set('n', '<leader>sr', picker_resume.resume, { desc = '[S]earch [R]esume (most recent)' })
     map_pretty_files('<leader>s.', 'oldfiles', '[S]earch Recent Files ("." for repeat)')
     vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
     vim.keymap.set('n', '<leader>st', '<cmd>TodoTelescope<CR>', { desc = '[S]earch [T]ODOs' })

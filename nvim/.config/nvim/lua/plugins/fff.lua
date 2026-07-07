@@ -60,6 +60,7 @@ return {
     {
       '<leader>sf',
       function()
+        require('utils.picker_resume').mark 'fff'
         require('fff').find_files()
       end,
       desc = '[S]earch [F]iles',
@@ -67,6 +68,7 @@ return {
     {
       '<leader>sg',
       function()
+        require('utils.picker_resume').mark 'fff'
         require('fff').live_grep()
       end,
       desc = '[S]earch by [G]rep',
@@ -74,6 +76,7 @@ return {
     {
       '<leader>sw',
       function()
+        require('utils.picker_resume').mark 'fff'
         require('fff').live_grep_under_cursor()
       end,
       mode = { 'n', 'x' },
@@ -82,6 +85,7 @@ return {
     {
       '<leader>sn',
       function()
+        require('utils.picker_resume').mark 'fff'
         require('fff').find_files_in_dir(vim.fn.stdpath 'config')
       end,
       desc = '[S]earch [N]eovim files',
