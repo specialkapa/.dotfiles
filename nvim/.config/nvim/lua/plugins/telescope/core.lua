@@ -13,6 +13,7 @@ return {
     { 'nvim-telescope/telescope-dap.nvim' },
     { 'nvim-telescope/telescope-file-browser.nvim' },
     { 'nvim-telescope/telescope-ui-select.nvim' },
+    { 'debugloop/telescope-undo.nvim' },
     { 'nvim-tree/nvim-web-devicons', enabled = vim.g.have_nerd_font },
   },
   config = function()
@@ -85,6 +86,12 @@ return {
         },
         file_browser = {
           grouped = true,
+        },
+        undo = {
+          layout_strategy = 'horizontal',
+          layout_config = {
+            preview_width = 0.6,
+          },
         },
         cmdline = {
           picker = {
@@ -197,6 +204,10 @@ return {
     -- NOTE: <leader>sf ([S]earch [F]iles) is now handled by fff.nvim (see plugins/fff.lua).
     vim.keymap.set('n', '<leader>fdd', find_directory_and_focus, { desc = '[F]ocus [DD]ir in tree' })
     vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
+    vim.keymap.set('n', '<leader>su', function()
+      require('telescope').load_extension 'undo'
+      require('telescope').extensions.undo.undo()
+    end, { desc = '[S]earch [U]ndo history' })
     -- NOTE: <leader>sw / <leader>sg (grep word / by grep) are now handled by fff.nvim.
     vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
     vim.keymap.set('n', '<leader>sR', builtin.lsp_references, { desc = '[S]earch LSP [R]eferences' })
@@ -206,7 +217,9 @@ return {
     local picker_resume = require 'utils.picker_resume'
     vim.api.nvim_create_autocmd('User', {
       pattern = 'TelescopeFindPre',
-      callback = function() picker_resume.mark 'telescope' end,
+      callback = function()
+        picker_resume.mark 'telescope'
+      end,
     })
     vim.keymap.set('n', '<leader>sr', picker_resume.resume, { desc = '[S]earch [R]esume (most recent)' })
     map_pretty_files('<leader>s.', 'oldfiles', '[S]earch Recent Files ("." for repeat)')
@@ -215,6 +228,9 @@ return {
     vim.keymap.set('n', '<leader>fd', ' :Telescope find_files cwd=', { desc = 'Search in directory' })
     vim.keymap.set('n', '<leader>fb', ' :Telescope file_browser<CR>', { desc = '[F]ile [B]rowser' })
     vim.keymap.set('n', '<leader>gs', builtin.git_status, { desc = '[G]it changed files ([S]tatus)' })
+    vim.keymap.set('n', '<leader>gc', function()
+      require('plugins.telescope.last_commit_picker').pick()
+    end, { desc = '[G]it files in last [C]ommit' })
     vim.keymap.set('n', '<leader>g/', function()
       require('plugins.telescope.hunk_picker').pick()
     end, { desc = '[G]it hunks [/] in current buffer' })
