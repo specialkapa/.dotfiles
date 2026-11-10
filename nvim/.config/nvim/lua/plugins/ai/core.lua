@@ -15,7 +15,7 @@ return {
         },
         codex_cmd = { 'codex' },
         focus_after_send = true,
-        log_level = 'debug',
+        log_level = 'debugs ',
         autostart = false,
       }
 
@@ -29,30 +29,26 @@ return {
     end,
   },
   {
-    'github/copilot.vim', -- depends on node.js. Make sure it is installed
+    -- Toggle it with `:Copilot disable` / `:Copilot enable` (session-wide), or
+    -- `:Copilot toggle` for just the current buffer. `cmd` below is what lets
+    -- those run before the first InsertEnter has loaded the plugin.
+    'zbirenbaum/copilot.lua', -- depends on node.js. Make sure it is installed
+    cmd = 'Copilot',
+    event = 'InsertEnter',
+    opts = {
+      -- Completions are served through the nvim-cmp menu by copilot-cmp, so the
+      -- inline ghost text and the panel stay off: they would draw on top of the
+      -- menu and compete with it for <Tab>.
+      suggestion = { enabled = false },
+      panel = { enabled = false },
+    },
+  },
+  {
+    'zbirenbaum/copilot-cmp',
+    dependencies = { 'zbirenbaum/copilot.lua' },
+    event = 'InsertEnter',
     config = function()
-      local function set_copilot_from_marker()
-        local marker = vim.fn.getcwd() .. '/.copilot'
-        local enable = true
-        if vim.fn.filereadable(marker) == 1 then
-          local lines = vim.fn.readfile(marker)
-          local value = vim.trim(lines[1] or '')
-          enable = value ~= 'enable=false'
-        end
-        if enable then
-          vim.cmd 'Copilot enable'
-        else
-          vim.cmd 'Copilot disable'
-        end
-      end
-
-      local group = vim.api.nvim_create_augroup('CopilotLearningMode', { clear = true })
-      vim.api.nvim_create_autocmd({ 'VimEnter', 'DirChanged' }, {
-        group = group,
-        callback = function()
-          set_copilot_from_marker()
-        end,
-      })
+      require('copilot_cmp').setup()
     end,
   },
   {
@@ -94,9 +90,7 @@ return {
       local claudeTermGroup = vim.api.nvim_create_augroup('UserClaudeTerminal', { clear = true })
 
       local function is_claude_terminal(buf)
-        return vim.api.nvim_buf_is_valid(buf)
-          and vim.bo[buf].buftype == 'terminal'
-          and vim.api.nvim_buf_get_name(buf):lower():match 'claude' ~= nil
+        return vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == 'terminal' and vim.api.nvim_buf_get_name(buf):lower():match 'claude' ~= nil
       end
 
       -- <Esc> drops to terminal-normal mode (so you can visual-select Claude's
