@@ -335,8 +335,12 @@ config.keys = {
 	{ key = "phys:Comma", mods = "CTRL|SHIFT", action = rename_tab_action },
 
 	-- Command palette — same as WezTerm's default, but bound explicitly so it can't
-	-- depend on default-binding state (and to confirm it's not being shadowed here).
-	{ key = "P", mods = "CTRL|SHIFT", action = act.ActivateCommandPalette },
+	-- depend on default-binding state. Must be phys:P, not "P": with an uppercase
+	-- letter WezTerm treats the Shift as baked into the character and drops SHIFT
+	-- from the mods, so `key="P", mods="CTRL|SHIFT"` registers as plain Ctrl+P *and*
+	-- replaces the working default — leaving the palette unreachable. Same Shift trap
+	-- the phys: bindings above avoid. Verify with `wezterm show-keys`.
+	{ key = "phys:P", mods = "CTRL|SHIFT", action = act.ActivateCommandPalette },
 
 	-- Enter modal key tables via the leader (LEADER then the letter). While a table
 	-- is active, bare keys do the mode's actions and Esc/q exit; the status line
