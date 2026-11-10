@@ -72,6 +72,7 @@ return { -- Autocompletion
       Event = '',
       Operator = '󰆕',
       TypeParameter = '󰊄',
+      Copilot = '',
     }
 
     local palettes_ok, palettes = pcall(require, 'catppuccin.palettes')
@@ -88,7 +89,46 @@ return { -- Autocompletion
 
     local border = require('utils.ui').border_hl(border_highlight)
 
+    if mocha then
+      vim.api.nvim_set_hl(0, 'CmpItemKindCopilot', { fg = mocha.teal })
+    end
+
+    -- Copilot happily suggests on a blank line (it reads the lines above and
+    -- below), so an unguarded <Tab> would select a menu entry where you meant to
+    -- indent. Gate menu navigation on there being a non-blank char behind the
+    -- cursor.
+    local function has_words_before()
+      local line, col = unpack(vim.api.nvim_win_get_cursor(0))
+      if col == 0 then
+        return false
+      end
+      local text = vim.api.nvim_buf_get_lines(0, line - 1, line, true)[1]
+      return text:sub(col, col):match '%s' == nil
+    end
+
+    -- `prioritize` floats Copilot's entries to the top of the group. pcall'd so
+    -- cmp still comes up clean if copilot-cmp is ever removed.
+    local comparators = {
+      cmp.config.compare.offset,
+      cmp.config.compare.exact,
+      cmp.config.compare.score,
+      cmp.config.compare.recently_used,
+      cmp.config.compare.locality,
+      cmp.config.compare.kind,
+      cmp.config.compare.sort_text,
+      cmp.config.compare.length,
+      cmp.config.compare.order,
+    }
+    local copilot_cmp_ok, copilot_comparators = pcall(require, 'copilot_cmp.comparators')
+    if copilot_cmp_ok then
+      table.insert(comparators, 1, copilot_comparators.prioritize)
+    end
+
     cmp.setup {
+      sorting = {
+        priority_weight = 2,
+        comparators = comparators,
+      },
       window = {
         documentation = {
           border = border,
@@ -157,7 +197,7 @@ return { -- Autocompletion
         --    https://github.com/L3MON4D3/LuaSnip?tab=readme-ov-file#keymaps
         -- Select next/previous item with Tab / Shift + Tab
         ['<Tab>'] = cmp.mapping(function(fallback)
-          if cmp.visible() then
+          if cmp.visible() and has_words_before() then
             cmp.select_next_item()
           elseif luasnip.expand_or_locally_jumpable() then
             luasnip.expand_or_jump()
@@ -181,6 +221,13 @@ return { -- Autocompletion
           -- set group index to 0 to skip loading LuaLS completions as lazydev recommends it
           group_index = 0,
         },
+        -- Deliberately left at the default group_index (1), the same group as
+        -- nvim_lsp, rather than the `group_index = 2` copilot-cmp's README
+        -- shows. cmp only falls through to a later group when every earlier one
+        -- comes back empty, and the README's example puts *all* its sources in
+        -- group 2 -- copying just this line would park Copilot in a group behind
+        -- the LSP and it would surface only where the LSP had nothing to say.
+        { name = 'copilot' },
         { name = 'nvim_lsp' },
         { name = 'luasnip' },
         { name = 'buffer' },
@@ -191,6 +238,7 @@ return { -- Autocompletion
         format = function(entry, vim_item)
           vim_item.kind = string.format('%s', kind_icons[vim_item.kind])
           vim_item.menu = ({
+            copilot = '[Copilot]',
             nvim_lsp = '[LSP]',
             luasnip = '[Snippet]',
             buffer = '[Buffer]',
