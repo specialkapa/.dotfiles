@@ -46,7 +46,6 @@ return {
           dap = { justMyCode = false },
           args = { '--log-level', 'DEBUG', '-vvv' },
           runner = 'pytest',
-          python = '.venv/bin/python',
         },
         require 'neotest-plenary',
       },
