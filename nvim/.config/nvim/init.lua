@@ -22,6 +22,7 @@ require('lazy').setup {
   require 'plugins.treesitter',
   require 'plugins.telescope',
   require 'plugins.lsp',
+  require 'plugins.lazydev',
   require 'plugins.autocompletion',
   require 'plugins.cmp-dap',
   require 'plugins.formatter',
@@ -44,4 +45,5 @@ require('lazy').setup {
   require 'plugins.db-utils',
   require 'plugins.navigation',
   require 'plugins.fff',
+  require 'plugins.urlview',
 }
