@@ -19,9 +19,9 @@ return {
       show_end_of_buffer = false,
       term_colors = false,
       dim_inactive = {
-        enabled = false,
+        enabled = true,
         shade = 'dark',
-        percentage = 0.15,
+        percentage = 0.30,
       },
       no_italic = false,
       no_bold = false,
@@ -110,6 +110,9 @@ return {
         WinSeparator = { fg = colors.blue },
         -- Ensure neominimap honors Catppuccin's dimming for inactive windows
         NeominimapBackground = { link = 'NormalNC' },
+        -- NOTE: bufferline brightness (and its devicon backgrounds) is driven
+        -- from lua/plugins/bufferline.lua's `highlights` function, not here, so
+        -- the file-type icon backgrounds stay in sync with the tab tint.
       }
     end
 

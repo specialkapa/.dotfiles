@@ -7,6 +7,38 @@ return {
     'nvim-tree/nvim-web-devicons', -- OPTIONAL: for file icons
   },
   opts = {
+    -- Brighten the bufferline in two tiers and keep the file-type devicons in
+    -- sync. bufferline clones each devicon's background from the tab's own
+    -- highlight (buffer_selected / buffer_visible / background), so the only
+    -- reliable way to recolour icon backgrounds is to hand bufferline the
+    -- corrected backgrounds here rather than patching BufferLine* groups after
+    -- setup. Passing a function means it re-runs on every catppuccin flavour
+    -- (latte/mocha) switch, so both tiers track the theme automatically.
+    highlights = function(defaults)
+      local ok, ctp_bufferline = pcall(require, 'catppuccin.special.bufferline')
+      if not ok then
+        return defaults.highlights
+      end
+
+      local hls = ctp_bufferline.get_theme()()
+      local C = require('catppuccin.palettes').get_palette()
+
+      for _, hl in pairs(hls) do
+        -- Tier 1: every tab's background (catppuccin's `mantle`) -> lighter `surface0`.
+        -- Tier 2: the focused tab's background (catppuccin's `base`) -> brighter `surface1`.
+        if hl.bg == C.mantle then
+          hl.bg = C.surface0
+        elseif hl.bg == C.base then
+          hl.bg = C.surface1
+        end
+        -- Lift catppuccin's dim `surface1` tab text to the more legible `subtext1`.
+        if hl.fg == C.surface1 then
+          hl.fg = C.subtext1
+        end
+      end
+
+      return hls
+    end,
     options = {
       mode = 'buffers',
       themable = true,
