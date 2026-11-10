@@ -262,3 +262,9 @@
 - [x] review SEQ PR
 - [x] arrange Gavin to talk to Afrexim bank to recommend TNP.
 - [x] review credit beacon marketing slide deck.
+
+
+# 2026-11-01
+
+- [ ] Todo item
+
