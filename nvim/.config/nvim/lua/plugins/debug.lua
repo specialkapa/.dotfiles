@@ -403,9 +403,13 @@ return {
           pythonPath = function()
             -- debugpy supports launching an application with a different interpreter then the one used to launch debugpy itself.
             -- The code below first respects `VIRTUAL_ENV`, then looks for `venv` or `.venv` folders in the current directory.
-            local python_bin = vim.env.VIRTUAL_ENV
-            if python_bin and python_bin ~= '' then
-              if vim.fn.isdirectory(python_bin) == 1 and vim.fn.executable(python_bin) == 1 then
+            -- VIRTUAL_ENV is the env *root* directory, so the interpreter lives
+            -- at `$VIRTUAL_ENV/bin/python`. Build that path and test it — testing
+            -- VIRTUAL_ENV itself would fail, since a directory is never executable.
+            local venv = vim.env.VIRTUAL_ENV
+            if venv and venv ~= '' then
+              local python_bin = venv .. '/bin/python'
+              if vim.fn.executable(python_bin) == 1 then
                 return python_bin
               end
             end
