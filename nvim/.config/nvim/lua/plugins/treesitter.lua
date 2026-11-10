@@ -23,6 +23,12 @@ return { -- Highlight, edit, and navigate code
     },
     -- nvim-dap-repl-highlights is set up in the main config function below
     'LiadOz/nvim-dap-repl-highlights',
+    -- `main` is required: the `master` branch pairs with nvim-treesitter's `master`
+    -- and its `configs.setup { textobjects = ... }` API silently no-ops here.
+    {
+      'nvim-treesitter/nvim-treesitter-textobjects',
+      branch = 'main',
+    },
   },
   config = function()
     -- IMPORTANT: nvim-dap-repl-highlights.setup() MUST be called BEFORE treesitter setup
@@ -32,6 +38,44 @@ return { -- Highlight, edit, and navigate code
     require('nvim-treesitter').setup {
       install_dir = vim.fn.stdpath 'data' .. '/site',
     }
+
+    require('nvim-treesitter-textobjects').setup {
+      select = {
+        -- Jump forward to the textobject if the cursor is before it, so `vif` works
+        -- from a blank line above a function rather than failing.
+        lookahead = true,
+        selection_modes = {
+          ['@function.outer'] = 'V',
+          ['@class.outer'] = 'V',
+        },
+        include_surrounding_whitespace = false,
+      },
+    }
+
+    -- Textobject selection only for now; `move` and `swap` can layer on later.
+    -- `a`/`i` prefixes are free in operator-pending/visual mode, so none of these
+    -- collide with the `[c`/`]d`/`]t` bracket jumps in core/keymaps.lua.
+    local ts_select = require 'nvim-treesitter-textobjects.select'
+    local textobjects = {
+      { key = 'f', name = 'function', outer = '@function.outer', inner = '@function.inner' },
+      { key = 'c', name = 'class', outer = '@class.outer', inner = '@class.inner' },
+      { key = 'a', name = 'argument', outer = '@parameter.outer', inner = '@parameter.inner' },
+      { key = 'i', name = 'conditional', outer = '@conditional.outer', inner = '@conditional.inner' },
+      { key = 'l', name = 'loop', outer = '@loop.outer', inner = '@loop.inner' },
+      { key = 'm', name = 'call', outer = '@call.outer', inner = '@call.inner' },
+      -- Most languages only ship a @comment.outer query, so there is no `i/`.
+      { key = '/', name = 'comment', outer = '@comment.outer' },
+    }
+    for _, obj in ipairs(textobjects) do
+      vim.keymap.set({ 'x', 'o' }, 'a' .. obj.key, function()
+        ts_select.select_textobject(obj.outer, 'textobjects')
+      end, { desc = 'Select outer ' .. obj.name })
+      if obj.inner then
+        vim.keymap.set({ 'x', 'o' }, 'i' .. obj.key, function()
+          ts_select.select_textobject(obj.inner, 'textobjects')
+        end, { desc = 'Select inner ' .. obj.name })
+      end
+    end
 
     -- Install parsers (main branch API)
     local parsers_to_install = {
