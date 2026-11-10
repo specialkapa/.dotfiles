@@ -195,7 +195,9 @@ return {
             runtime = { version = 'LuaJIT' },
             workspace = {
               checkThirdParty = false,
-              library = vim.api.nvim_get_runtime_file('', true),
+              -- No `library` here on purpose: lazydev.nvim supplies it per
+              -- workspace, on demand. Setting it to the runtimepath again would
+              -- put every plugin's source back into the initial index.
             },
             diagnostics = {
               globals = { 'vim' },
