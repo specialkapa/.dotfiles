@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# Refuse to be sourced: `set -e` below would leak into (and later close) your shell.
+if (return 0 2>/dev/null); then
+    echo "Run this script (e.g. ./$(basename "${BASH_SOURCE[0]}")), don't source it." >&2
+    return 1
+fi
+
 set -euo pipefail
 
 #------------------------------------------------------------------------------
@@ -166,9 +172,12 @@ EOF
 cd "$HOME"
 
 if command_exists nvim; then
-    read -r -p "Neovim is already installed. Wipe existing configuration and reinstall? [y/N]: " wipe_choice
+    read -r -p "Neovim is already installed. Wipe plugins/state/cache and reinstall? [y/N]: " wipe_choice
     if [[ "$wipe_choice" =~ ^[Yy]$ ]]; then
-        rm -rf "$HOME/.config/nvim"
+        # ~/.config/nvim is a stow link into ~/.dotfiles — that's the config itself, never remove it.
+        if [[ ! -L "$HOME/.config/nvim" ]]; then
+            show_warning "$HOME/.config/nvim is not a link to the dotfiles; leaving it alone. Run ~/.dotfiles/setup.sh."
+        fi
         rm -rf "$HOME/.local/share/nvim"
         rm -rf "$HOME/.local/state/nvim"
         rm -rf "$HOME/.cache/nvim"
@@ -218,8 +227,8 @@ fi
 
 if ! command_exists brew; then
     if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
-        echo >>/home/tnpadmin/.bashrc
-        echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >>/home/tnpadmin/.bashrc
+        echo >>"$HOME/.bashrc"
+        echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >>"$HOME/.bashrc"
         eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
         show_success "homebrew installation complete."
     else
@@ -236,7 +245,7 @@ install_cargo_package eza
 install_with_brew lazygit
 install_with_brew lazydocker
 install_if_not_exists neovim nvim
-install_with_brew git-delta
+command_exists delta || install_with_brew git-delta # normally done by ~/.dotfiles/setup.sh
 install_with_brew bat
 install_with_brew stow
 install_with_brew codex
@@ -245,7 +254,11 @@ install_with_brew fastfetch
 install_with_brew gh
 source $HOME/.bashrc
 gh extension install dlvhdr/gh-dash
-install_with_apt postgresql-client
+if command_exists apt-get; then
+    install_with_apt postgresql-client
+elif command_exists pacman; then
+    install_with_pacman postgresql # ships psql on Arch
+fi
 
 if ! command_exists "atuin"; then
     echo "atuin is not installed. Installing now."
@@ -255,7 +268,7 @@ if ! command_exists "atuin"; then
         show_success "atuin installation complete."
     else
         show_error "Failed to install atuin."
-        return 1
+        exit 1
     fi
 else
     show_warning "atuin is already installed."
@@ -271,14 +284,7 @@ elif command_exists pacman; then
     sudo pacman -S lua51 luarocks base-devel curl
 fi
 
-git config --global core.pager delta
-git config --global interactive.diffFilter 'delta --color-only'
-git config --global delta.navigate true
-git config --global delta.dark true
-git config --global delta.side-by-side true
-git config --global delta.line-numbers true
-git config --global delta.hyperlinks true
-git config --global merge.conflictStyle zdiff3
-git config --global autocrlf input
+# git/delta settings live in the dotfiles repo's git/.gitconfig (linked by setup.sh).
+# Don't `git config --global` here: ~/.gitconfig is a link, so it would edit the repo.
 
 ensure_osc7
