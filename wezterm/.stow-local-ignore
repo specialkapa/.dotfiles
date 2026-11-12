@@ -1,0 +1,7 @@
+# Replaces stow's default ignore list for this package, so keep the usual suspects.
+\.stow-local-ignore
+\.git
+\.gitignore
+^/README.*
+# Helper script run from the repo on WSL; not a dotfile to link into $HOME.
+^/install-windows-loader\.sh

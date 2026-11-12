@@ -1,6 +1,5 @@
-[user]
-    name = Konstantinos Papazafeiropoulos
-    email = kostas.papazafeiropoulos@tnp.eu
+# Identity (name/email) is per machine and NOT committed. setup.sh asks for it and
+# writes ~/.gitconfig.local. Included last so it can also override anything here.
 
 [core]
     autocrlf = input
@@ -32,3 +31,6 @@
     adog = log --all --decorate --oneline --graph
 [init]
 	defaultBranch = main
+
+[include]
+    path = ~/.gitconfig.local

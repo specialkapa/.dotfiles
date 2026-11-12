@@ -1,0 +1,73 @@
+# starship.toml — port of the old oh-my-posh "minimal" theme, shared by all machines.
+#
+#   ┌ <os> user ~/path/to/dir  main  .venv (3.12.4)
+#   └ 
+#
+# Glyphs are written as \u escapes so they survive editors without Nerd Fonts.
+# Colours are the ones from the oh-my-posh theme.
+
+add_newline = false
+command_timeout = 200
+
+format = """
+[┌ ](#c2acfc)$os$username$directory$git_branch$git_commit$python
+$character"""
+
+# ── OS icon (left of the prompt) ─────────────────────────────────────────────
+# The old oh-my-posh theme hardcoded the Ubuntu logo (\uebc9) before the user name;
+# here the icon depends on the machine instead. WSL reports its distro (Ubuntu),
+# which keeps that exact logo. Arch is shown as Hyprland, since my only Arch
+# box is Omarchy. (Omarchy's own logo lives at U+E900 in its `omarchy` font, but
+# Nerd Fonts use that codepoint too, and WezTerm can't map one codepoint to a font.)
+[os]
+disabled = false
+format = "[$symbol]($style)"
+style = "#c2acfc"
+
+[os.symbols]
+Arch = "\uf359 "     # nf-linux-hyprland
+Ubuntu = "\uebc9 "   # same Ubuntu logo the oh-my-posh theme used
+Debian = "\uf306 "
+Fedora = "\uf30a "
+Linux = "\uf17c "
+Macos = "\uf302 "
+Windows = "\ue62a "
+
+# ── user ─────────────────────────────────────────────────────────────────────
+[username]
+show_always = true
+format = "[$user]($style)"  # the OS icon above replaces the old hardcoded Ubuntu logo
+style_user = "#c2acfc"
+style_root = "bold red"
+
+# ── path (oh-my-posh "full": whole path, ~ for home) ─────────────────────────
+[directory]
+format = "[ $path]($style)[$read_only]($read_only_style) "
+style = "#76b3ea"
+truncation_length = 0
+truncate_to_repo = false
+home_symbol = "~"
+
+# ── git (oh-my-posh template was just {{ .HEAD }}: branch, or commit if detached)
+[git_branch]
+format = "[$symbol$branch]($style) "
+symbol = "\ue0a0 "
+style = "#95ec2f"
+
+[git_commit]
+format = "[\uf417 $hash]($style) "
+style = "#95ec2f"
+only_detached = true
+
+# ── python: " .venv (3.12.4)" ────────────────────────────────────────────────
+[python]
+format = '[ (${virtualenv} )\(${version}\)]($style)'
+version_format = "${raw}"
+style = "#f71483"
+python_binary = [".venv/bin/python", "python3", "python"]
+
+# ── second line ──────────────────────────────────────────────────────────────
+[character]
+success_symbol = "[└ \uebca](#95ec2f)"
+error_symbol = "[└ \uebca](#95ec2f)"
+vimcmd_symbol = "[└ \uebca](#95ec2f)"

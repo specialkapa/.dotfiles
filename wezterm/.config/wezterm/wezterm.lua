@@ -1,6 +1,11 @@
 -- wezterm.lua — main configuration.
 --
--- IMPORTANT: WezTerm is a *Windows* application and does not read this file from
+-- This file is shared by two setups:
+--   • Windows + WSL2 (work laptop): see below.
+--   • Native Linux (e.g. Omarchy): `stow wezterm` links it to ~/.config/wezterm and
+--     WezTerm reads it directly. Windows-only bits are gated on `is_windows`.
+--
+-- IMPORTANT (Windows): WezTerm is a *Windows* application and does not read this file from
 -- here directly. The real entrypoint is a tiny loader at
 --   C:\Users\KostasPapazafeiropou\.wezterm.lua
 -- which `dofile()`s this file over the \\wsl.localhost\Ubuntu mount and registers
@@ -16,6 +21,10 @@ local mux = wezterm.mux
 local act = wezterm.action
 local config = wezterm.config_builder()
 
+-- True when WezTerm.exe runs on Windows (and so spawns into WSL). False on native
+-- Linux, where WSL domains, PowerShell and the Windows link opener make no sense.
+local is_windows = wezterm.target_triple:find("windows") ~= nil
+
 -- ── Startup: spawn a maximized window on launch ───────────────────────────────
 wezterm.on("gui-startup", function()
 	local tab, pane, window = mux.spawn_window({})
@@ -30,35 +39,37 @@ local tabline = wezterm.plugin.require("https://github.com/michaelbrusegard/tabl
 -- Open straight into the WSL distro instead of a Windows shell. The distro name
 -- is baked into the Windows loader at generation time (it knows $WSL_DISTRO_NAME)
 -- and handed over via wezterm.GLOBAL, so this file stays machine-agnostic.
-local wsl_distro = (wezterm.GLOBAL and wezterm.GLOBAL.wsl_distro) or "Ubuntu"
-config.default_domain = "WSL:" .. wsl_distro
+if is_windows then
+	local wsl_distro = (wezterm.GLOBAL and wezterm.GLOBAL.wsl_distro) or "Ubuntu"
+	config.default_domain = "WSL:" .. wsl_distro
 
--- Define the WSL domain explicitly so we can pin its working directory to the
--- Linux home. Without this, new tabs inherit WezTerm.exe's *Windows* cwd and land
--- on /mnt/c/... — `~` is expanded by `wsl.exe --cd`, which WezTerm uses to spawn.
-config.wsl_domains = {
-	{
-		name = "WSL:" .. wsl_distro,
-		distribution = wsl_distro,
-		default_cwd = "~",
-	},
-}
+	-- Define the WSL domain explicitly so we can pin its working directory to the
+	-- Linux home. Without this, new tabs inherit WezTerm.exe's *Windows* cwd and land
+	-- on /mnt/c/... — `~` is expanded by `wsl.exe --cd`, which WezTerm uses to spawn.
+	config.wsl_domains = {
+		{
+			name = "WSL:" .. wsl_distro,
+			distribution = wsl_distro,
+			default_cwd = "~",
+		},
+	}
 
--- ── Ad-hoc PowerShell (default stays WSL bash) ───────────────────────────────
--- default_domain above keeps every new tab in WSL. These launch_menu entries let
--- us spawn a Windows shell *on demand* without changing that default. Each entry
--- pins domain = "local" (the Windows-native domain) — without it WezTerm would try
--- to run powershell.exe *inside* the WSL distro (the default domain) and fail.
--- Reach them three ways:
---   • Ctrl+Shift+L         → the launch-menu palette (pick an entry)
---   • the ⌄ new-tab button → dropdown lists these entries
---   • LEADER p s / LEADER p w  (see keybindings below) → spawn directly
--- pwsh.exe is PowerShell 7+ (if installed); powershell.exe is the built-in 5.1.
-config.launch_menu = {
-	{ label = "PowerShell", args = { "powershell.exe" }, domain = { DomainName = "local" } },
-	{ label = "PowerShell 7 (pwsh)", args = { "pwsh.exe" }, domain = { DomainName = "local" } },
-	{ label = "Command Prompt", args = { "cmd.exe" }, domain = { DomainName = "local" } },
-}
+	-- ── Ad-hoc PowerShell (default stays WSL bash) ───────────────────────────────
+	-- default_domain above keeps every new tab in WSL. These launch_menu entries let
+	-- us spawn a Windows shell *on demand* without changing that default. Each entry
+	-- pins domain = "local" (the Windows-native domain) — without it WezTerm would try
+	-- to run powershell.exe *inside* the WSL distro (the default domain) and fail.
+	-- Reach them three ways:
+	--   • Ctrl+Shift+L         → the launch-menu palette (pick an entry)
+	--   • the ⌄ new-tab button → dropdown lists these entries
+	--   • LEADER p s / LEADER p w  (see keybindings below) → spawn directly
+	-- pwsh.exe is PowerShell 7+ (if installed); powershell.exe is the built-in 5.1.
+	config.launch_menu = {
+		{ label = "PowerShell", args = { "powershell.exe" }, domain = { DomainName = "local" } },
+		{ label = "PowerShell 7 (pwsh)", args = { "pwsh.exe" }, domain = { DomainName = "local" } },
+		{ label = "Command Prompt", args = { "cmd.exe" }, domain = { DomainName = "local" } },
+	}
+end
 
 -- ── GPU / rendering ──────────────────────────────────────────────────────────
 -- OpenGL (via ANGLE→D3D11 on Windows) instead of WebGpu: WebGpu's swapchain
@@ -366,13 +377,15 @@ config.keys = {
 	-- Ad-hoc Windows shells (default stays WSL bash — see launch_menu above):
 	--   LEADER w → new PowerShell tab (pwsh.exe if present, else powershell.exe)
 	--   LEADER L → the launch-menu palette (same as Ctrl+Shift+L), to pick cmd/etc.
-	{
+	{ key = "L", mods = "LEADER", action = act.ShowLauncherArgs({ flags = "LAUNCH_MENU_ITEMS" }) },
+}
+if is_windows then
+	table.insert(config.keys, {
 		key = "w",
 		mods = "LEADER",
 		action = act.SpawnCommandInNewTab({ args = { "powershell.exe" }, domain = { DomainName = "local" } }),
-	},
-	{ key = "L", mods = "LEADER", action = act.ShowLauncherArgs({ flags = "LAUNCH_MENU_ITEMS" }) },
-}
+	})
+end
 
 -- Append the seamless Ctrl+h/j/k/l navigation keys defined above.
 for _, k in ipairs(build_nav_keys()) do
@@ -393,7 +406,6 @@ local cheatsheet = {
 	{ keys = "LEADER p", desc = "Pomodoro mode (s start/pause · n skip · r reset)", action = activate_mode("pomodoro") },
 	{ keys = "LEADER [", desc = "Copy mode (vim motions · v select · y yank)", action = act.ActivateCopyMode },
 	{ keys = "LEADER /", desc = "Search scrollback", action = act.Search("CurrentSelectionOrEmptyString") },
-	{ keys = "LEADER w", desc = "New PowerShell tab", action = act.SpawnCommandInNewTab({ args = { "powershell.exe" }, domain = { DomainName = "local" } }) },
 	{ keys = "LEADER L", desc = "Launch menu (pick cmd / pwsh / …)", action = act.ShowLauncherArgs({ flags = "LAUNCH_MENU_ITEMS" }) },
 	{ keys = "Alt+Shift+-", desc = "Split pane down (stacked)", action = act.SplitVertical({ domain = "CurrentPaneDomain" }) },
 	{ keys = "Alt+Shift+=", desc = "Split pane right (side by side)", action = act.SplitHorizontal({ domain = "CurrentPaneDomain" }) },
@@ -408,6 +420,13 @@ local cheatsheet = {
 	{ keys = "Ctrl+h/j/k/l", desc = "Move between panes / nvim splits (reference)", action = nil },
 	{ keys = "Ctrl+Space", desc = "Leader prefix — press, then a LEADER key above (reference)", action = nil },
 }
+if is_windows then
+	table.insert(cheatsheet, 6, {
+		keys = "LEADER w",
+		desc = "New PowerShell tab",
+		action = act.SpawnCommandInNewTab({ args = { "powershell.exe" }, domain = { DomainName = "local" } }),
+	})
+end
 
 local function open_cheatsheet()
 	local choices = {}
@@ -537,7 +556,11 @@ config.mouse_bindings = {
 -- open call rejects as a working directory, so links silently don't open. We hand
 -- the URL to Windows' FileProtocolHandler via rundll32 (cwd-independent), and
 -- return false to suppress the broken default. Other schemes use the default.
+-- Native Linux needs none of this: the built-in opener (xdg-open) works.
 wezterm.on("open-uri", function(_, _, uri)
+	if not is_windows then
+		return
+	end
 	-- DIAGNOSTIC (temporary): record every invocation + spawn result so we can tell
 	-- whether the event even fires and whether the spawn raised. Writes to the same
 	-- Windows cache dir the other features use. Remove once links are confirmed working.
