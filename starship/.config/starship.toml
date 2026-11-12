@@ -10,26 +10,34 @@ add_newline = false
 command_timeout = 200
 
 format = """
-[┌ ](#c2acfc)$os$username$directory$git_branch$git_commit$python
+[┌ ](#c2acfc)${env_var.OMARCHY_PATH}$os$username$directory$git_branch$git_commit$python
 $character"""
 
 # ── OS icon (left of the prompt) ─────────────────────────────────────────────
 # The old oh-my-posh theme hardcoded the Ubuntu logo (\uebc9) before the user name;
 # here the icon depends on the machine instead. WSL reports its distro (Ubuntu),
-# which keeps that exact logo. Arch is shown as Hyprland, since my only Arch
-# box is Omarchy. (Omarchy's own logo lives at U+E900 in its `omarchy` font, but
-# Nerd Fonts use that codepoint too, and WezTerm can't map one codepoint to a font.)
+# which keeps that exact logo.
+#
+# Omarchy's /etc/os-release says ID=omarchy, which starship doesn't know, so the
+# os module reports plain "Linux". Omarchy is detected via $OMARCHY_PATH instead
+# (env_var below, no shell spawned) and shows the Hyprland logo; the Linux symbol
+# is left empty so Tux doesn't appear next to it. (Omarchy's own logo lives at
+# U+E900 in its `omarchy` font, but Nerd Fonts use that codepoint too, and WezTerm
+# can't map one codepoint to a font.)
+[env_var.OMARCHY_PATH]
+format = "[\uf359 ](#c2acfc)"   # nf-linux-hyprland
+
 [os]
 disabled = false
 format = "[$symbol]($style)"
 style = "#c2acfc"
 
 [os.symbols]
-Arch = "\uf359 "     # nf-linux-hyprland
+Arch = "\uf303 "     # nf-linux-archlinux
 Ubuntu = "\uebc9 "   # same Ubuntu logo the oh-my-posh theme used
 Debian = "\uf306 "
 Fedora = "\uf30a "
-Linux = "\uf17c "
+Linux = ""          # unknown distro: Omarchy (see env_var above)
 Macos = "\uf302 "
 Windows = "\ue62a "
 

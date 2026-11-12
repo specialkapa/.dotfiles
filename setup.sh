@@ -26,8 +26,10 @@ set -euo pipefail
 DOTFILES="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_DIR="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
 
-# Same set everywhere; profiles differ in the extra steps, not in what's linked.
+# Linked on every machine.
 PACKAGES=(bat btop fastfetch gh-dash git git-graph lazygit nvim opencode starship vim vimwiki wezterm)
+# Linked only with the omarchy profile (configs for Omarchy's own tools).
+OMARCHY_PACKAGES=(omarchy)
 
 # Directories that are a whole config of their own: an existing one is backed up
 # as a unit instead of being merged file-by-file with the repo's (which would
@@ -285,7 +287,9 @@ clear_conflicts() {
 stow_all() {
 	info "Linking packages into $HOME"
 	local pkg
-	for pkg in "${PACKAGES[@]}"; do
+	local -a pkgs=("${PACKAGES[@]}")
+	[[ $profile == omarchy ]] && pkgs+=("${OMARCHY_PACKAGES[@]}")
+	for pkg in "${pkgs[@]}"; do
 		clear_conflicts "$pkg"
 		if ((dry_run)); then
 			echo "  [dry-run] stow -R $pkg" >&2
@@ -321,6 +325,9 @@ profile_omarchy() {
 	yellow "Note: Omarchy's 'refresh fastfetch' (and some migrations) copy their default"
 	yellow "over ~/.config/fastfetch/config.jsonc, which writes *through* the link into"
 	yellow "this repo. If 'git status' ever shows that file changed, 'git checkout' it."
+	yellow "Omarchy migrations that edit ~/.config/omarchy/shell.json replace the link with a"
+	yellow "plain file. If it's no longer a link, diff it against the repo, keep what you want"
+	yellow "in omarchy/.config/omarchy/shell.json, and re-run ./setup.sh."
 }
 
 profile_linux() {

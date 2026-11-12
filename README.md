@@ -38,7 +38,7 @@ handles the differences:
    - ask for the git name/email for this machine and write them to `~/.gitconfig.local` (not
      committed; included from [`.gitconfig`](./git/.gitconfig)),
    - move anything in `$HOME` that would block a link to `~/.dotfiles-backup/<timestamp>/`,
-   - `stow` every package,
+   - `stow` every package (plus `omarchy` on the Omarchy profile only),
    - run the profile-specific steps (WSL: generate the Windows `wezterm` loader; Omarchy/Linux: point
      `btop` at the catppuccin theme instead of Omarchy's).
 3. install the `neovim` dependencies. Refer to [README](./nvim/.config/nvim/README.md) for details.
@@ -50,6 +50,11 @@ handles the differences:
 - `omarchy-refresh-fastfetch` (and a few Omarchy migrations) copy Omarchy's default over
   `~/.config/fastfetch/config.jsonc`. Because that file is a link, the copy lands in this repo — if
   `git status` shows it changed, `git checkout` it.
+- The `omarchy` package (bar layout, dock, idle timers in `~/.config/omarchy/shell.json`) is only
+  linked on the Omarchy profile. Changes made from the bar UI write through the link into this repo.
+  Omarchy migrations that edit `shell.json` replace the link with a plain file instead — if
+  `ls -l ~/.config/omarchy/shell.json` no longer shows a link, merge it into
+  [`shell.json`](./omarchy/.config/omarchy/shell.json) and re-run `./setup.sh`.
 
 # prompt (`starship`)
 
