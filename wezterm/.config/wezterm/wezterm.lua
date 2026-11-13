@@ -26,8 +26,10 @@ local config = wezterm.config_builder()
 local is_windows = wezterm.target_triple:find("windows") ~= nil
 
 -- ── Startup: spawn a maximized window on launch ───────────────────────────────
-wezterm.on("gui-startup", function()
-	local tab, pane, window = mux.spawn_window({})
+-- `cmd` carries the program/cwd passed via `wezterm start -- <prog>` (used by
+-- xdg-terminal-exec / Omarchy launchers); ignoring it would always open a shell.
+wezterm.on("gui-startup", function(cmd)
+	local tab, pane, window = mux.spawn_window(cmd or {})
 	window:gui_window():maximize()
 end)
 
@@ -93,13 +95,27 @@ config.harfbuzz_features = { "calt=1", "liga=1", "clig=1" } -- FiraCode ligature
 -- ── Theme: track the Windows light/dark setting, matching nvim's catppuccin
 --    `flavour = 'auto'` (latte in light, mocha in dark). WezTerm re-evaluates the
 --    config when the OS appearance changes, so this switches live. ─────────────
+-- On Linux, read the desktop's light/dark preference ourselves: WezTerm's
+-- wezterm.gui.get_appearance() returns "Light" for new windows under Hyprland
+-- even when the system prefers dark, giving a white background. Omarchy sets
+-- this gsettings key on theme change. Windows keeps the built-in query.
+local function get_appearance()
+	if not is_windows then
+		local ok, out = wezterm.run_child_process({ "gsettings", "get", "org.gnome.desktop.interface", "color-scheme" })
+		if ok then
+			return out:find("dark") and "Dark" or "Light"
+		end
+	end
+	return wezterm.gui.get_appearance()
+end
+
 local function scheme_for(appearance)
 	if appearance:find("Dark") then
 		return "Catppuccin Mocha"
 	end
 	return "Catppuccin Latte"
 end
-config.color_scheme = scheme_for(wezterm.gui.get_appearance())
+config.color_scheme = scheme_for(get_appearance())
 
 -- ── Window chrome ────────────────────────────────────────────────────────────
 -- Keep the bar visible even with a single tab so the status line always shows.
@@ -619,7 +635,7 @@ local catppuccin = {
 		green = "#40a02b",
 	},
 }
-local p = wezterm.gui.get_appearance():find("Dark") and catppuccin.mocha or catppuccin.latte
+local p = get_appearance():find("Dark") and catppuccin.mocha or catppuccin.latte
 
 -- Purple-family scheme: violet NORMAL badge + workspace, deeper purple active
 -- tab (mauve), muted surface inactive, surface1 hover, mantle bar, peach accent
@@ -752,7 +768,7 @@ end)
 tabline.setup({
 	options = {
 		icons_enabled = true,
-		theme = scheme_for(wezterm.gui.get_appearance()),
+		theme = scheme_for(get_appearance()),
 		tabs_enabled = true,
 		-- No slanted separators: tabs are plain rectangular blocks. The active tab is
 		-- a solid mauve block, inactive tabs a muted surface0 block (see theme_overrides
@@ -825,5 +841,11 @@ tabline.setup({
 })
 
 tabline.apply_to_config(config)
+-- apply_to_config() forces window_decorations = "RESIZE". On Linux/Wayland that
+-- makes WezTerm draw its own strip with buttons above the window; Hyprland
+-- handles borders and resizing, so turn decorations off there.
+if not is_windows then
+	config.window_decorations = "NONE"
+end
 
 return config
