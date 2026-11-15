@@ -66,9 +66,6 @@
           "id": "omarchy.tray"
         },
         {
-          "id": "crmne.hyprmoncfg"
-        },
-        {
           "id": "omarchy.media"
         },
         {
@@ -93,7 +90,17 @@
           "id": "omarchy.power"
         }
       ],
-      "tray": []
+      "tray": [
+        {
+          "id": "crmne.hyprmoncfg"
+        },
+        {
+          "id": "lef.windows-vm"
+        },
+        {
+          "id": "ninepointlabs.webcam"
+        }
+      ]
     },
     "position": "top"
   },
