@@ -1,6 +1,6 @@
 {
   "bar": {
-    "background": "opaque",
+    "background": "glassy",
     "layout": {
       "center": [
         {
@@ -17,34 +17,34 @@
       ],
       "centerEnd": [
         {
-          "id": "omarchy.elsewhen",
           "cities": [
             {
-              "name": "Edinburgh",
-              "zone": "Europe/London",
               "lat": 55.95206,
               "lon": -3.19648,
-              "region": "Scotland, GB"
+              "name": "Edinburgh",
+              "region": "Scotland, GB",
+              "zone": "Europe/London"
             },
             {
               "name": "Dubai",
               "zone": "Asia/Dubai"
             },
             {
-              "name": "Paris",
-              "zone": "Europe/Paris",
               "lat": 48.85341,
               "lon": 2.3488,
-              "region": "Île-de-France Region, FR"
+              "name": "Paris",
+              "region": "Île-de-France Region, FR",
+              "zone": "Europe/Paris"
             },
             {
-              "name": "Cape Town",
-              "zone": "Africa/Johannesburg",
               "lat": -33.92584,
               "lon": 18.42322,
-              "region": "Western Cape, ZA"
+              "name": "Cape Town",
+              "region": "Western Cape, ZA",
+              "zone": "Africa/Johannesburg"
             }
-          ]
+          ],
+          "id": "omarchy.elsewhen"
         },
         {
           "id": "omarchy.weather"
@@ -66,7 +66,15 @@
           "id": "omarchy.tray"
         },
         {
-          "id": "omarchy.media"
+          "id": "specialkapa.media"
+        },
+        {
+          "id": "specialkapa.visualizer",
+          "style": "waves",
+          "bars": 10,
+          "gradient": true,
+          "colors": "#mid",
+          "hideWhenIdle": true
         },
         {
           "id": "omarchy.keyboard-layout"
@@ -92,13 +100,12 @@
       ],
       "tray": [
         {
-          "id": "crmne.hyprmoncfg"
-        },
-        {
           "id": "lef.windows-vm"
         },
         {
-          "id": "ninepointlabs.webcam"
+          "id": "specialkapa.spotify-dl",
+          "fallbackGenre": "unknown",
+          "notify": true
         }
       ]
     },
@@ -120,6 +127,16 @@
     "lock": 300,
     "screensaver": 150
   },
-  "plugins": [],
-  "version": 1
+  "plugins": [
+    {
+      "id": "ninepointlabs.webcam"
+    }
+  ],
+  "version": 1,
+  "disabledPlugins": [
+    "omarchy.media"
+  ],
+  "cloneSourceRestores": [
+    "specialkapa.media"
+  ]
 }
