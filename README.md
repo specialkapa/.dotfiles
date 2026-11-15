@@ -55,6 +55,11 @@ handles the differences:
   Omarchy migrations that edit `shell.json` replace the link with a plain file instead — if
   `ls -l ~/.config/omarchy/shell.json` no longer shows a link, merge it into
   [`shell.json`](./omarchy/.config/omarchy/shell.json) and re-run `./setup.sh`.
+- The `hyprmoncfg` package (also Omarchy-only) holds my monitor profiles. `desk-mirror` matches the
+  Dell U2722DE: the laptop panel mirrors the Dell with workspaces 1–10 pinned to it, and the panel is
+  turned off when the lid is closed. Run `hyprmoncfg manage` once on a new machine so the daemon
+  switches profiles automatically. Saving a profile from the TUI may replace its link with a plain
+  file; if so, copy it back into this repo and re-run `./setup.sh`.
 
 # prompt (`starship`)
 
