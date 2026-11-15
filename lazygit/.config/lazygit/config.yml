@@ -7,8 +7,8 @@ gui:
     selectedRangeBgColor:
       - reverse
 git:
-  pagers:
+  diffRenderers:
     - colorArg: always
-      pager: delta -s --dark --paging=never
+      command: delta -s --dark --paging=never
   # branchLogCmd: sh -c "~/.config/lazygit/branch-log.sh"
   branchLogCmd: git-graph --model simple --style round --format "%h <%ae> (%as)%d %s"
