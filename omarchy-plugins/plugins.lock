@@ -1,0 +1,12 @@
+# Omarchy plugins: <id> <git url> <commit>. Kept current by ./capture-omarchy.sh (runs automatically)
+io.github.saikomantisu.commandbar https://github.com/Saikomantisu/omarchy-commandbar e751af78ce38ee176d6c7fc9d23631a3ad7d8e02
+io.github.tyrichards.tray https://github.com/TyRichards/omarchy-tray.git 5c0d9a9f0efcf151f93b5cf991916221671d1601
+kokd.remote-desktop https://github.com/kostadinkadiev/omarchy-remote-desktop.git 6efc54e00eff07ab7771feccdb9befb92d7f0f52
+lef.windows-vm https://github.com/Somnius/Windows-VM-for-Omarchy.git 3628b4ea2e67656524ca7758f7c90c08dc7282fc
+ninepointlabs.webcam https://github.com/ninepointlabs/omarchy-webcam.git 3d0477fcb97dc688b976de1ad442ed8a969fddde
+specialkapa.media https://github.com/specialkapa/omarchy-media.git 9833ad8c36afa31a7578ad71efd1ec7516cc8ac9
+specialkapa.notifications https://github.com/specialkapa/omarchy-notifications.git ece1eb8eb70b4e078dfe2b8361d5c3e32321099b
+specialkapa.spotify-dl https://github.com/specialkapa/omarchy-spotify-dl.git 46ce0a785c5c30c99fd5ee3aaecf368a74e5f19c
+specialkapa.visualizer https://github.com/specialkapa/omarchy-visualizer.git 8cff6c7f178377eaf688f21570b0f27c89d8b5e0
+stappmus.activity-monitor https://github.com/stappmus/omarchy-activity-monitor.git b25a98c7ff2a688ab74d86d2be42249e2db2f9cf
+tornikegomareli.spaces https://github.com/tornikegomareli/omarchy-spaces.git 458852c88336722f61d8c67487bc03d4d3523893
