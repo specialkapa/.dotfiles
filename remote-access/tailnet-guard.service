@@ -1,0 +1,13 @@
+[Unit]
+Description=Restrict SSH/RDP to loopback and allowed Tailscale peers
+Wants=network-pre.target
+Before=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/nft -f /etc/nftables.d/tailnet-guard.nft
+ExecStop=/usr/bin/nft delete table inet tailnet_guard
+
+[Install]
+WantedBy=multi-user.target
