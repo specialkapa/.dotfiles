@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+# Backups that Omarchy and other tools write next to linked files.
+*.bak.[0-9]*
