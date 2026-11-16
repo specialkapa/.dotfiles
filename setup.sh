@@ -10,6 +10,7 @@
 # Profiles:
 #   wsl      Windows + WSL2 Ubuntu (work laptop). WezTerm runs on Windows.
 #   omarchy  Omarchy (Arch + Hyprland). Native WezTerm; my themes override Omarchy's.
+#            Also installs my Omarchy plugins and (asked) SSH/RDP remote access.
 #   linux    Any other Linux.
 #
 # Anything already in $HOME that would block a link is moved to
@@ -29,7 +30,7 @@ BACKUP_DIR="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
 # Linked on every machine.
 PACKAGES=(bat btop fastfetch gh-dash git git-graph lazygit nvim opencode starship vim vimwiki wezterm)
 # Linked only with the omarchy profile (configs for Omarchy's own tools).
-OMARCHY_PACKAGES=(omarchy hyprmoncfg)
+OMARCHY_PACKAGES=(omarchy hyprmoncfg local-bin omarchy-autocapture)
 
 # Directories that are a whole config of their own: an existing one is backed up
 # as a unit instead of being merged file-by-file with the repo's (which would
@@ -288,7 +289,12 @@ stow_all() {
 	info "Linking packages into $HOME"
 	local pkg
 	local -a pkgs=("${PACKAGES[@]}")
-	[[ $profile == omarchy ]] && pkgs+=("${OMARCHY_PACKAGES[@]}")
+	if [[ $profile == omarchy ]]; then
+		pkgs+=("${OMARCHY_PACKAGES[@]}")
+		# Real directories, so stow links the files inside them instead of linking the
+		# whole directory into this repo (plugins are cloned into the first one).
+		run mkdir -p "$HOME/.config/omarchy/plugins" "$HOME/.local/bin"
+	fi
 	for pkg in "${pkgs[@]}"; do
 		clear_conflicts "$pkg"
 		if ((dry_run)); then
@@ -322,12 +328,25 @@ profile_wsl() {
 
 profile_omarchy() {
 	use_my_btop_theme
+	info "Omarchy plugins"
+	if ((dry_run)); then
+		run "$DOTFILES/omarchy-plugins/install-plugins.sh" --dry-run
+	else
+		"$DOTFILES/omarchy-plugins/install-plugins.sh"
+		omarchy restart shell >/dev/null 2>&1 || yellow "Restart the shell (omarchy restart shell) to load plugins."
+	fi
+	info "Auto-capture of Omarchy changes into this repo"
+	run systemctl --user daemon-reload
+	run systemctl --user enable --now dotfiles-capture.path dotfiles-capture.timer
+	if confirm "Set up SSH + Remote Desktop access from my iPhone over Tailscale (remote-access/setup.sh)?"; then
+		run "$DOTFILES/remote-access/setup.sh"
+	fi
 	yellow "Note: Omarchy's 'refresh fastfetch' (and some migrations) copy their default"
 	yellow "over ~/.config/fastfetch/config.jsonc, which writes *through* the link into"
 	yellow "this repo. If 'git status' ever shows that file changed, 'git checkout' it."
-	yellow "Omarchy migrations that edit ~/.config/omarchy/shell.json replace the link with a"
-	yellow "plain file. If it's no longer a link, diff it against the repo, keep what you want"
-	yellow "in omarchy/.config/omarchy/shell.json, and re-run ./setup.sh."
+	yellow "Omarchy changes (shell.json saved over its link, plugins added/updated, new monitor"
+	yellow "profiles) are captured into this repo automatically by dotfiles-capture.path/.timer;"
+	yellow "you get a notification when that happens. Review 'git status' and commit."
 }
 
 profile_linux() {

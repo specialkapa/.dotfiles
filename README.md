@@ -50,16 +50,30 @@ handles the differences:
 - `omarchy-refresh-fastfetch` (and a few Omarchy migrations) copy Omarchy's default over
   `~/.config/fastfetch/config.jsonc`. Because that file is a link, the copy lands in this repo — if
   `git status` shows it changed, `git checkout` it.
-- The `omarchy` package (bar layout, dock, idle timers in `~/.config/omarchy/shell.json`) is only
-  linked on the Omarchy profile. Changes made from the bar UI write through the link into this repo.
-  Omarchy migrations that edit `shell.json` replace the link with a plain file instead — if
-  `ls -l ~/.config/omarchy/shell.json` no longer shows a link, merge it into
-  [`shell.json`](./omarchy/.config/omarchy/shell.json) and re-run `./setup.sh`.
+- The `omarchy` package (bar layout, dock, idle timers and plugin settings in
+  `~/.config/omarchy/shell.json`, plus `shell.toml`, `notify-rules.json`, the command bar's
+  `extensions/commandbar.json`, `defaults/agent` and `themed/` templates) is only linked on the
+  Omarchy profile. Changes made from the bar UI usually write through the link into this repo, but
+  Omarchy migrations, `omarchy plugin enable/disable` and some UI saves replace the link with a plain
+  file. The `omarchy-autocapture` package (systemd user units, enabled by `setup.sh`) handles that
+  automatically: `dotfiles-capture.path` watches `~/.config/omarchy`, its plugins folder and the
+  hyprmoncfg profiles, and `dotfiles-capture.timer` runs every 30 min. Both run
+  [`capture-omarchy.sh --auto`](./capture-omarchy.sh), which moves the newer plain file into the
+  repo and re-links it, and sends a desktop notification listing what it captured. It never
+  commits: review `git status` and commit yourself. Run `./capture-omarchy.sh` by hand any time;
+  logs: `journalctl --user -u dotfiles-capture`.
+- Plugins: see [`omarchy-plugins/`](./omarchy-plugins/README.md). Every plugin is a git clone listed
+  in `plugins.lock` (mine live in their own repos: `specialkapa/omarchy-{media,notifications,
+  spotify-dl,visualizer}`) and `setup.sh` clones them into place. Auto-capture keeps the lock
+  current and warns when a plugin isn't in git or one of mine has unpushed changes.
+- `local-bin` (Omarchy-only) holds `~/.local/bin/web-search-here`, used by the command bar.
+- Remote access (SSH + Remote Desktop from my iPhone over Tailscale, firewall-locked to it): see
+  [`remote-access/`](./remote-access/README.md). `setup.sh` asks before running it.
 - The `hyprmoncfg` package (also Omarchy-only) holds my monitor profiles. `desk-mirror` matches the
   Dell U2722DE: the laptop panel mirrors the Dell with workspaces 1–10 pinned to it, and the panel is
   turned off when the lid is closed. Run `hyprmoncfg manage` once on a new machine so the daemon
-  switches profiles automatically. Saving a profile from the TUI may replace its link with a plain
-  file; if so, copy it back into this repo and re-run `./setup.sh`.
+  switches profiles automatically. Profiles saved from the TUI (new ones, or ones that replace
+  their link with a plain file) are captured into this repo automatically.
 
 # prompt (`starship`)
 
