@@ -1,0 +1,75 @@
+{
+  "_help": [
+    "Notification rules for the specialkapa.notifications plugin. Saved changes apply at once.",
+    "sources: named senders shown in the bar panel, each with a mute switch. A muted source's",
+    "  notifications skip the popup (mutedAction) but still land in history and the unread count.",
+    "  match keys: app (app names), host (web sites; 'office.com' also matches sub-domains),",
+    "  summary / body / text (case-insensitive regex). All given keys must match; any list item may.",
+    "  \"muted\": true starts a source muted until you flip it in the panel.",
+    "rules: checked first, in order; the first match wins. action: show, silent or drop.",
+    "  \"source\": \"<id>\" limits a rule to one source.",
+    "Senders not listed here still appear in the panel once they notify, and can be muted there."
+  ],
+  "defaultAction": "show",
+  "mutedAction": "silent",
+  "sources": [
+    {
+      "id": "outlook",
+      "name": "Outlook",
+      "icon": "󰴢",
+      "match": {
+        "host": [
+          "outlook.office.com",
+          "outlook.office365.com",
+          "outlook.live.com",
+          "outlook.cloud.microsoft"
+        ]
+      }
+    },
+    {
+      "id": "teams",
+      "name": "Teams",
+      "icon": "󰊻",
+      "match": {
+        "host": [
+          "teams.microsoft.com",
+          "teams.cloud.microsoft",
+          "teams.live.com"
+        ]
+      }
+    },
+    {
+      "id": "teams-app",
+      "name": "Teams (app)",
+      "icon": "󰊻",
+      "match": {
+        "app": [
+          "teams-for-linux",
+          "Teams for Linux",
+          "Microsoft Teams"
+        ]
+      }
+    },
+    {
+      "id": "whatsapp",
+      "name": "WhatsApp",
+      "icon": "󰖣",
+      "match": {
+        "host": [
+          "web.whatsapp.com",
+          "whatsapp.com"
+        ]
+      }
+    }
+  ],
+  "rules": [
+    {
+      "name": "Example: hide Teams 'is typing' noise",
+      "source": "teams",
+      "match": {
+        "text": "\\bis typing\\b"
+      },
+      "action": "drop"
+    }
+  ]
+}
