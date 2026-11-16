@@ -4,9 +4,9 @@
     "layout": {
       "center": [
         {
-          "format": "dddd HH:mm",
-          "formatAlt": "d MMMM 'W'ww yyyy",
           "id": "omarchy.clock",
+          "format": "ddd d MMM HH:mm",
+          "formatAlt": "d MMMM 'W'ww yyyy",
           "verticalFormat": "HH\n—\nmm"
         }
       ],
@@ -63,9 +63,6 @@
       ],
       "right": [
         {
-          "id": "omarchy.tray"
-        },
-        {
           "id": "specialkapa.media"
         },
         {
@@ -75,6 +72,42 @@
           "gradient": true,
           "colors": "#mid",
           "hideWhenIdle": true
+        },
+        {
+          "id": "io.github.tyrichards.tray",
+          "hidden": [
+            "superwhisper"
+          ],
+          "showTrayIcons": false,
+          "widgets": [
+            {
+              "entry": {
+                "id": "lef.windows-vm"
+              },
+              "listed": true
+            },
+            {
+              "entry": {
+                "id": "specialkapa.spotify-dl",
+                "fallbackGenre": "unknown",
+                "notify": true
+              },
+              "listed": true
+            },
+            {
+              "entry": {
+                "id": "stappmus.activity-monitor"
+              }
+            }
+          ],
+          "order": [
+            "lef.windows-vm",
+            "specialkapa.spotify-dl",
+            "stappmus.activity-monitor"
+          ]
+        },
+        {
+          "id": "specialkapa.notifications"
         },
         {
           "id": "omarchy.keyboard-layout"
@@ -96,18 +129,12 @@
         },
         {
           "id": "omarchy.power"
-        }
-      ],
-      "tray": [
-        {
-          "id": "lef.windows-vm"
         },
         {
-          "id": "specialkapa.spotify-dl",
-          "fallbackGenre": "unknown",
-          "notify": true
+          "id": "kokd.remote-desktop"
         }
-      ]
+      ],
+      "tray": []
     },
     "position": "top"
   },
@@ -130,13 +157,30 @@
   "plugins": [
     {
       "id": "ninepointlabs.webcam"
+    },
+    {
+      "id": "lef.windows-vm"
+    },
+    {
+      "id": "specialkapa.spotify-dl"
+    },
+    {
+      "id": "specialkapa.notifications"
+    },
+    {
+      "id": "stappmus.activity-monitor"
+    },
+    {
+      "id": "io.github.saikomantisu.commandbar"
     }
   ],
   "version": 1,
   "disabledPlugins": [
-    "omarchy.media"
+    "omarchy.media",
+    "omarchy.notifications"
   ],
   "cloneSourceRestores": [
-    "specialkapa.media"
+    "specialkapa.media",
+    "specialkapa.notifications"
   ]
 }
