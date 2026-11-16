@@ -67,6 +67,12 @@ handles the differences:
   spotify-dl,visualizer}`) and `setup.sh` clones them into place. Auto-capture keeps the lock
   current and warns when a plugin isn't in git or one of mine has unpushed changes.
 - `local-bin` (Omarchy-only) holds `~/.local/bin/web-search-here`, used by the command bar.
+- `mpd` and `rmpc` (Omarchy-only) hold the music stack used by the Spotify Downloader and the bar
+  visualizer: `mpd.conf` (library `~/Music/Spotify`, PipeWire output plus a `/tmp/mpd.fifo` feed for
+  rmpc's visualizer), a `mpd-mpris` drop-in that restarts it with MPD, and rmpc's `config.ron`.
+  `setup.sh` creates MPD's directories and enables `mpd` and `mpd-mpris`. The database, state and
+  playlists (`~/.local/share/mpd`, `~/.local/state/mpd`) are not tracked; rmpc reads its config
+  only at launch.
 - Remote access (SSH + Remote Desktop from my iPhone over Tailscale, firewall-locked to it): see
   [`remote-access/`](./remote-access/README.md). `setup.sh` asks before running it.
 - The `hyprmoncfg` package (also Omarchy-only) holds my monitor profiles. `desk-mirror` matches the

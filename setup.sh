@@ -30,7 +30,7 @@ BACKUP_DIR="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
 # Linked on every machine.
 PACKAGES=(bat btop fastfetch gh-dash git git-graph lazygit nvim opencode starship vim vimwiki wezterm)
 # Linked only with the omarchy profile (configs for Omarchy's own tools).
-OMARCHY_PACKAGES=(omarchy hyprmoncfg local-bin omarchy-autocapture)
+OMARCHY_PACKAGES=(omarchy hyprmoncfg local-bin omarchy-autocapture mpd rmpc)
 
 # Directories that are a whole config of their own: an existing one is backed up
 # as a unit instead of being merged file-by-file with the repo's (which would
@@ -326,6 +326,16 @@ profile_wsl() {
 	fi
 }
 
+# MPD (music daemon) + mpd-mpris (bar media controls) + rmpc (player). Packages come
+# from install-plugins.sh; configs from the mpd/rmpc packages. MPD doesn't create
+# the directories its config points at.
+setup_music() {
+	info "Music: MPD + mpd-mpris"
+	run mkdir -p "$HOME/Music/Spotify" "$HOME/.local/share/mpd/playlists" "$HOME/.local/state/mpd"
+	run systemctl --user daemon-reload
+	run systemctl --user enable --now mpd.service mpd-mpris.service
+}
+
 profile_omarchy() {
 	use_my_btop_theme
 	info "Omarchy plugins"
@@ -335,6 +345,7 @@ profile_omarchy() {
 		"$DOTFILES/omarchy-plugins/install-plugins.sh"
 		omarchy restart shell >/dev/null 2>&1 || yellow "Restart the shell (omarchy restart shell) to load plugins."
 	fi
+	setup_music
 	info "Auto-capture of Omarchy changes into this repo"
 	run systemctl --user daemon-reload
 	run systemctl --user enable --now dotfiles-capture.path dotfiles-capture.timer
