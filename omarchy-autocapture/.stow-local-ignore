@@ -1,0 +1,5 @@
+# Replaces stow's default ignore list for this package, so keep the usual suspects.
+\.stow-local-ignore
+\.git
+\.gitignore
+^/README.*

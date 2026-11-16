@@ -1,0 +1,9 @@
+[Unit]
+Description=Capture Omarchy config and plugin changes into ~/.dotfiles (no commit)
+Documentation=file://%h/.dotfiles/capture-omarchy.sh
+
+[Service]
+Type=oneshot
+# Let Omarchy finish a burst of saves before looking.
+ExecStartPre=/usr/bin/sleep 3
+ExecStart=%h/.dotfiles/capture-omarchy.sh --auto

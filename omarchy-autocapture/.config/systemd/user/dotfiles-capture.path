@@ -1,0 +1,17 @@
+[Unit]
+Description=Watch Omarchy config, plugins and monitor profiles for changes to capture into ~/.dotfiles
+
+[Path]
+# Directories: fires when an entry is created, replaced, renamed or removed. Edits
+# made through the repo's links change files inside ~/.dotfiles instead, so they
+# need no capture and don't fire this.
+PathChanged=%h/.config/omarchy
+PathChanged=%h/.config/omarchy/defaults
+PathChanged=%h/.config/omarchy/extensions
+PathChanged=%h/.config/omarchy/themed
+PathChanged=%h/.config/omarchy/plugins
+PathChanged=%h/.config/hyprmoncfg/profiles
+Unit=dotfiles-capture.service
+
+[Install]
+WantedBy=default.target
