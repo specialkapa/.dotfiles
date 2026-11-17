@@ -132,6 +132,9 @@
         },
         {
           "id": "kokd.remote-desktop"
+        },
+        {
+          "id": "specialkapa.solar-nightlight"
         }
       ],
       "tray": []

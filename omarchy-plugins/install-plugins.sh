@@ -33,7 +33,10 @@ run() { if ((dry_run)); then echo "  [dry-run] $*" >&2; else "$@"; fi; }
 #   specialkapa.spotify-dl: yt-dlp ffmpeg mpd rmpc mpd-mpris wl-clipboard libnotify jq
 #   specialkapa.visualizer: cava
 #   superwhisper.panel:     superwhisper-bin
-PACKAGES=(yt-dlp ffmpeg mpd rmpc mpd-mpris wl-clipboard libnotify jq cava superwhisper-bin git)
+#   specialkapa.solar-nightlight: ddcutil (ships the i2c udev rule + i2c-dev module load)
+#                           brightnessctl hyprsunset python
+PACKAGES=(yt-dlp ffmpeg mpd rmpc mpd-mpris wl-clipboard libnotify jq cava superwhisper-bin git
+	ddcutil brightnessctl hyprsunset python)
 
 info "Plugin packages"
 if omarchy pkg missing "${PACKAGES[@]}"; then
