@@ -1,0 +1,202 @@
+#!/bin/bash
+# Send file paths to a live session of your Omarchy default AI agent
+# (`omarchy default agent`) as @-mentions.
+# Usage: send-to-agent FILE...
+#
+# Sessions: for Claude, `claude agents --json` (gives idle/busy status); for
+# any other agent, processes on a terminal whose command is the agent's binary
+# (directly, or as the script of node/bun/python). For each session we walk up
+# its process tree to the nearest thing hosting it, and use that host's backend:
+#
+#   tmux     tmux send-keys to the exact pane (works inside any terminal)
+#   wezterm  wezterm cli send-text to the exact pane (splits/tabs fine)
+#   kitty    kitty @ send-text to the exact window (needs allow_remote_control
+#            and listen_on set in kitty.conf)
+#   generic  any other terminal with its own Hyprland window (Alacritty, foot,
+#            ...): focus the window, check focus landed, type with wtype
+#
+# The text is pasted into the prompt but not submitted; the session's window
+# is brought to the front so you can add instructions and press Enter.
+# To add a terminal: add a case in detect() and label_/send_/focus_ functions.
+#
+# SEND_TO_AGENT=<binary> overrides the default agent.
+# SEND_TO_AGENT_DRY=1 lists detected sessions and exits.
+set -uo pipefail
+
+AGENT=${SEND_TO_AGENT:-$(omarchy-default-agent 2>/dev/null)}
+AGENT=${AGENT:-claude}
+case "$AGENT" in
+  claude) NAME="Claude" ;;      codex) NAME="Codex" ;;        opencode) NAME="OpenCode" ;;
+  pi) NAME="Pi" ;;              omp) NAME="Oh My Pi" ;;       agy) NAME="Antigravity" ;;
+  copilot) NAME="Copilot" ;;    cursor-agent) NAME="Cursor" ;; amp) NAME="Amp" ;;
+  qwen) NAME="Qwen" ;;          kimi) NAME="Kimi" ;;          crush) NAME="Crush" ;;
+  grok) NAME="Grok" ;;          *) NAME="$AGENT" ;;
+esac
+APP="Send to $NAME"
+fail() { notify-send -a "$APP" "$APP" "$1"; exit 1; }
+
+env_of() { tr '\0' '\n' < "/proc/$1/environ" 2>/dev/null | sed -n "s/^$2=//p" | head -n1; }
+ppid_of() { ps -o ppid= -p "$1" 2>/dev/null | tr -d ' '; }
+comm_of() { ps -o comm= -p "$1" 2>/dev/null; }
+
+CLIENTS=$(hyprctl clients -j 2>/dev/null || echo '[]')
+
+# Echo "<kind> <host_pid>" for the nearest host of process $1.
+detect() {
+  local p=$1 c
+  while [ -n "$p" ] && [ "$p" -gt 1 ]; do
+    c=$(comm_of "$p")
+    case "$c" in
+      "tmux: server"*|tmux) echo "tmux $p"; return ;;
+      wezterm-gui)          echo "wezterm $p"; return ;;
+      kitty)                echo "kitty $p"; return ;;
+    esac
+    if jq -e --argjson p "$p" 'any(.[]; .pid == $p)' <<<"$CLIENTS" >/dev/null; then
+      echo "generic $p"; return
+    fi
+    p=$(ppid_of "$p")
+  done
+  return 1
+}
+
+# Focus the Hyprland window owned by $1; if several share that PID (one
+# process, many windows), pick the one whose title ends with $2.
+hypr_focus() {
+  local host=$1 suffix=${2:-} addr _
+  for _ in 1 2 3 4 5 6 7 8 9 10; do
+    addr=$(jq -r --argjson p "$host" --arg t "$suffix" '
+      [.[] | select(.pid == $p)] as $w
+      | if ($w | length) == 1 then $w[0].address
+        else ($w[] | select($t != "" and (.title | endswith($t))) | .address) end' \
+      <<<"$(hyprctl clients -j)" | head -n1)
+    [ -n "$addr" ] && break
+    sleep 0.1
+  done
+  [ -n "$addr" ] || return 1
+  hyprctl dispatch focuswindow "address:$addr" >/dev/null
+  echo "$addr"
+}
+
+# Bring forward whatever hosts process $1 (used for tmux clients).
+focus_host_of() {
+  local kind host
+  read -r kind host < <(detect "$1") || return 1
+  "focus_$kind" "$1" "$host"
+}
+
+# ---- wezterm ---------------------------------------------------------------
+wez() { WEZTERM_UNIX_SOCKET=$(env_of "$PID" WEZTERM_UNIX_SOCKET) wezterm cli "$@"; }
+wez_title() {
+  PID=$1 wez list --format json 2>/dev/null |
+    jq -r --argjson id "$(env_of "$1" WEZTERM_PANE)" '.[] | select(.pane_id == $id) | .title'
+}
+label_wezterm() { wez_title "$1"; }
+send_wezterm()  { printf '%s' "$3" | PID=$1 wez send-text --pane-id "$(env_of "$1" WEZTERM_PANE)"; }
+focus_wezterm() {
+  PID=$1 wez activate-pane --pane-id "$(env_of "$1" WEZTERM_PANE)" 2>/dev/null
+  hypr_focus "$2" "$(wez_title "$1")" >/dev/null
+}
+
+# ---- tmux ------------------------------------------------------------------
+tmx() { local t; t=$(env_of "$PID" TMUX); tmux -S "${t%%,*}" "$@"; }
+label_tmux() { PID=$1 tmx display -p -t "$(env_of "$1" TMUX_PANE)" '#{pane_title}' 2>/dev/null; }
+send_tmux()  { PID=$1 tmx send-keys -t "$(env_of "$1" TMUX_PANE)" -l -- "$3"; }
+focus_tmux() {
+  local pane cpid
+  pane=$(env_of "$1" TMUX_PANE)
+  PID=$1 tmx select-window -t "$pane" 2>/dev/null
+  PID=$1 tmx select-pane -t "$pane" 2>/dev/null
+  for cpid in $(PID=$1 tmx list-clients -t "$pane" -F '#{client_pid}' 2>/dev/null); do
+    focus_host_of "$cpid" && return 0
+  done
+  return 1
+}
+
+# ---- kitty -----------------------------------------------------------------
+kit() { kitty @ --to "$(env_of "$PID" KITTY_LISTEN_ON)" "$@"; }
+label_kitty() {
+  PID=$1 kit ls 2>/dev/null | jq -r --argjson id "$(env_of "$1" KITTY_WINDOW_ID)" \
+    '.[].tabs[].windows[] | select(.id == $id) | .title'
+}
+send_kitty()  { printf '%s' "$3" | PID=$1 kit send-text --match "id:$(env_of "$1" KITTY_WINDOW_ID)" --stdin; }
+focus_kitty() {
+  PID=$1 kit focus-window --match "id:$(env_of "$1" KITTY_WINDOW_ID)" 2>/dev/null
+  hypr_focus "$2" "$(label_kitty "$1")" >/dev/null
+}
+
+# ---- generic (own Hyprland window, no remote-control API) ------------------
+label_generic() { jq -r --argjson p "$2" '.[] | select(.pid == $p) | .title' <<<"$CLIENTS" | head -n1; }
+focus_generic() { hypr_focus "$2" >/dev/null; }
+send_generic() {
+  local addr active
+  addr=$(hypr_focus "$2") || return 1
+  sleep 0.15
+  active=$(hyprctl activewindow -j | jq -r .address)
+  [ "$active" = "$addr" ] || return 1   # never type into the wrong window
+  wtype -- "$3"
+}
+
+# ---------------------------------------------------------------------------
+[[ "${BASH_SOURCE[0]}" != "$0" ]] && return 0   # sourced (for testing): functions only
+[ $# -gt 0 ] || fail "No files given."
+# Echo "pid<TAB>status<TAB>cwd" for each live interactive session of $AGENT.
+list_sessions() {
+  if [ "$AGENT" = claude ]; then
+    claude agents --json 2>/dev/null |
+      jq -r '.[] | select(.kind == "interactive") | [.pid, .status, .cwd] | @tsv'
+    return
+  fi
+  # One row per terminal: wrappers (node → native binary) share a tty, keep the first.
+  ps -eo pid=,tty=,args= --sort=pid | awk -v a="$AGENT" '
+    function base(s) { sub(/.*\//, "", s); sub(/\.(js|mjs|cjs|py)$/, "", s); return s }
+    $2 == "?" { next }
+    { b0 = base($3); b1 = base($4) }
+    b0 == a || (b0 ~ /^(node|bun|deno|python3?)$/ && b1 == a) {
+      if (!seen[$2]++) print $1
+    }' | while read -r pid; do
+      printf '%s\t-\t%s\n' "$pid" "$(readlink "/proc/$pid/cwd" 2>/dev/null)"
+    done
+}
+
+rows=""
+while IFS=$'\t' read -r pid status cwd; do
+  read -r kind host < <(detect "$pid") || continue
+  title=$("label_$kind" "$pid" "$host")
+  title=${title#[!A-Za-z0-9]* }             # drop a leading status glyph
+  [ -n "$title" ] || title="$NAME session"
+  sub="${cwd/#"$HOME"/"~"}"
+  [ "$status" = - ] && status=""
+  [ -n "$status" ] && sub+="  ·  $status"
+  sub+="  ·  $kind  ·  #$pid"
+  rows+="$kind"$'\t'"$pid"$'\t'"$host"$'\t'"${status:--}"$'\t'"$title"$'\t'"$sub"$'\n'
+done < <(list_sessions)
+rows=${rows%$'\n'}
+
+[ -n "$rows" ] || fail "No live $NAME sessions found in a supported terminal."
+[ -n "${SEND_TO_AGENT_DRY:-}" ] && { printf '%s\n' "$rows"; exit 0; }
+
+if [ "$(wc -l <<<"$rows")" -eq 1 ]; then
+  choice=$rows
+else
+  # Omarchy's own themed menu. Rows are "<glyph>\t<label>\t<subtext>"; it
+  # returns "<label>\t<subtext>", and the subtext ends in "#<pid>" as the key.
+  picked=$(awk -F'\t' '{ printf "%s\t%s\t%s\n", ($4 == "busy" ? "󰦖" : "󰚩"), $5, $6 }' <<<"$rows" |
+    omarchy-menu-select "$APP" -- --width 640) || exit 0
+  pid_key=${picked##*#}
+  choice=$(awk -F'\t' -v p="$pid_key" '$2 == p' <<<"$rows")
+  [ -n "$choice" ] || exit 0
+fi
+IFS=$'\t' read -r kind pid host _ <<<"$choice"
+
+text=""
+for f in "$@"; do
+  if [[ "$f" == *" "* ]]; then text+="@\"$f\" "; else text+="@$f "; fi
+done
+
+if [ "$kind" = generic ]; then
+  send_generic "$pid" "$host" "$text" || fail "Couldn't focus the session's window, so nothing was typed."
+else
+  "send_$kind" "$pid" "$host" "$text" || fail "Couldn't paste into the session ($kind)."
+  "focus_$kind" "$pid" "$host"
+fi
+exit 0

@@ -66,7 +66,13 @@ handles the differences:
   in `plugins.lock` (mine live in their own repos: `specialkapa/omarchy-{media,notifications,
   spotify-dl,visualizer}`) and `setup.sh` clones them into place. Auto-capture keeps the lock
   current and warns when a plugin isn't in git or one of mine has unpushed changes.
-- `local-bin` (Omarchy-only) holds `~/.local/bin/web-search-here`, used by the command bar.
+- `local-bin` (Omarchy-only) holds `~/.local/bin/web-search-here`, used by the command bar, and
+  `~/.local/bin/send-to-agent`, which pastes `@file` mentions into a live session of the Omarchy
+  default AI agent (tmux, WezTerm, Kitty or any terminal with its own window).
+- `nautilus` (Omarchy-only) adds **Send to <agent>** to the Files right-click menu
+  (`nautilus-python` extension) and the **Ctrl+Alt+C** shortcut (a Nautilus script plus
+  `~/.config/nautilus/scripts-accels`). Omarchy's own extensions (LocalSend, transcode) stay
+  unmanaged. Run `nautilus -q` after changing them.
 - `mpd` and `rmpc` (Omarchy-only) hold the music stack used by the Spotify Downloader and the bar
   visualizer: `mpd.conf` (library `~/Music/Spotify`, PipeWire output plus a `/tmp/mpd.fifo` feed for
   rmpc's visualizer), a `mpd-mpris` drop-in that restarts it with MPD, and rmpc's `config.ron`.

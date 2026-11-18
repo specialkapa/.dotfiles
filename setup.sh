@@ -30,7 +30,7 @@ BACKUP_DIR="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
 # Linked on every machine.
 PACKAGES=(bat btop fastfetch gh-dash git git-graph lazygit nvim opencode starship vim vimwiki wezterm)
 # Linked only with the omarchy profile (configs for Omarchy's own tools).
-OMARCHY_PACKAGES=(omarchy hyprmoncfg local-bin omarchy-autocapture mpd rmpc)
+OMARCHY_PACKAGES=(omarchy hyprmoncfg local-bin omarchy-autocapture mpd rmpc nautilus)
 
 # Directories that are a whole config of their own: an existing one is backed up
 # as a unit instead of being merged file-by-file with the repo's (which would
@@ -292,8 +292,11 @@ stow_all() {
 	if [[ $profile == omarchy ]]; then
 		pkgs+=("${OMARCHY_PACKAGES[@]}")
 		# Real directories, so stow links the files inside them instead of linking the
-		# whole directory into this repo (plugins are cloned into the first one).
-		run mkdir -p "$HOME/.config/omarchy/plugins" "$HOME/.local/bin"
+		# whole directory into this repo (plugins are cloned into the first one;
+		# Omarchy and Nautilus keep their own files next to the nautilus links).
+		run mkdir -p "$HOME/.config/omarchy/plugins" "$HOME/.local/bin" \
+			"$HOME/.local/share/nautilus-python/extensions" "$HOME/.local/share/nautilus/scripts" \
+			"$HOME/.config/nautilus"
 	fi
 	for pkg in "${pkgs[@]}"; do
 		clear_conflicts "$pkg"
