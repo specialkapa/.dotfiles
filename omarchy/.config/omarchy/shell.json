@@ -58,7 +58,13 @@
           "id": "omarchy.menu"
         },
         {
-          "id": "tornikegomareli.spaces"
+          "id": "tornikegomareli.spaces",
+          "showApps": "all",
+          "iconStyle": "color",
+          "labelStyle": "number",
+          "density": "compact",
+          "settingsButton": "hover",
+          "holdSuperNumbers": false
         }
       ],
       "right": [
