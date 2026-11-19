@@ -73,6 +73,12 @@ handles the differences:
   (`nautilus-python` extension) and the **Ctrl+Alt+C** shortcut (a Nautilus script plus
   `~/.config/nautilus/scripts-accels`). Omarchy's own extensions (LocalSend, transcode) stay
   unmanaged. Run `nautilus -q` after changing them.
+- `yazi` (Omarchy-only) is the yazi file manager config. `theme.toml` links to the copy Omarchy
+  renders from `omarchy/.config/omarchy/themed/yazi-theme.toml.tpl` on every `omarchy theme set`,
+  so yazi follows the current theme (the link is relative, so the repo must live at
+  `~/.dotfiles`). Extra keys under `c`: `c i` copy image, `c t` copy file contents, `c a` send to
+  the agent (as does **Ctrl+Alt+C**, like Nautilus), `c z` zip with a name prompt (the `mkzip`
+  plugin). `.ica` files open in Citrix Workspace.
 - `mpd` and `rmpc` (Omarchy-only) hold the music stack used by the Spotify Downloader and the bar
   visualizer: `mpd.conf` (library `~/Music/Spotify`, PipeWire output plus a `/tmp/mpd.fifo` feed for
   rmpc's visualizer), a `mpd-mpris` drop-in that restarts it with MPD, and rmpc's `config.ron`.

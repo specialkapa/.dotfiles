@@ -30,7 +30,7 @@ BACKUP_DIR="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
 # Linked on every machine.
 PACKAGES=(bat btop fastfetch gh-dash git git-graph lazygit nvim opencode starship vim vimwiki wezterm)
 # Linked only with the omarchy profile (configs for Omarchy's own tools).
-OMARCHY_PACKAGES=(omarchy hypr hyprmoncfg local-bin omarchy-autocapture mpd rmpc nautilus)
+OMARCHY_PACKAGES=(omarchy hypr hyprmoncfg local-bin omarchy-autocapture mpd rmpc nautilus yazi)
 
 # Directories that are a whole config of their own: an existing one is backed up
 # as a unit instead of being merged file-by-file with the repo's (which would

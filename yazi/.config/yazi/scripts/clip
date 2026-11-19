@@ -1,0 +1,41 @@
+#!/bin/bash
+# Copy a file to the Wayland clipboard from yazi.
+# Usage: clip image FILE   copy the image itself (converted to PNG, which every app accepts)
+#        clip text  FILE   copy the file's text contents
+set -uo pipefail
+
+mode=${1:-}
+file=${2:-}
+APP="Yazi"
+
+note() { notify-send -a "$APP" "$1" "$2"; }
+
+[[ -f $file ]] || { note "Nothing copied" "Focus a file first."; exit 1; }
+name=${file##*/}
+mime=$(file -bL --mime-type -- "$file")
+
+case $mode in
+  image)
+    [[ $mime == image/* ]] || { note "Not an image" "$name is $mime."; exit 1; }
+    if [[ $mime == image/png ]]; then
+      wl-copy --type image/png <"$file"
+    else
+      # JPEG/WebP/SVG/etc. are converted so pasting works everywhere.
+      magick -- "$file"[0] png:- | wl-copy --type image/png
+    fi || { note "Copy failed" "Could not copy $name."; exit 1; }
+    note "Image copied" "$name"
+    ;;
+  text)
+    if [[ $(file -bL --mime-encoding -- "$file") == binary ]]; then
+      note "Not a text file" "$name is $mime."
+      exit 1
+    fi
+    wl-copy --type 'text/plain;charset=utf-8' <"$file" \
+      || { note "Copy failed" "Could not copy $name."; exit 1; }
+    note "Contents copied" "$name ($(wc -l <"$file") lines)"
+    ;;
+  *)
+    echo "usage: clip image|text FILE" >&2
+    exit 2
+    ;;
+esac

@@ -1,0 +1,12 @@
+# Only overrides are listed here; everything else uses yazi's defaults.
+
+[opener]
+citrix = [
+	{ run = '/opt/Citrix/ICAClient/wfica.sh %s1', orphan = true, desc = "Citrix Workspace", for = "unix" },
+]
+
+[open]
+# .ica files sniff as an INI file, so match on the extension instead.
+prepend_rules = [
+	{ url = "*.ica", use = [ "citrix", "edit", "reveal" ] },
+]

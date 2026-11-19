@@ -1,0 +1,28 @@
+# Only additions are listed here; yazi's default bindings stay in place.
+
+[[mgr.prepend_keymap]]
+# Same shortcut as the Nautilus "Send to AI Agent" script. The helper picks the
+# session through an Omarchy menu, so it runs detached rather than blocking yazi.
+on   = "<C-A-c>"
+run  = 'shell --orphan -- "$HOME/.local/bin/send-to-agent" %s'
+desc = "Send selected files to AI agent session"
+
+[[mgr.prepend_keymap]]
+on   = [ "c", "i" ]
+run  = 'shell --orphan -- "$HOME/.config/yazi/scripts/clip" image %h'
+desc = "Copy image to clipboard"
+
+[[mgr.prepend_keymap]]
+on   = [ "c", "t" ]
+run  = 'shell --orphan -- "$HOME/.config/yazi/scripts/clip" text %h'
+desc = "Copy file contents to clipboard"
+
+[[mgr.prepend_keymap]]
+on   = [ "c", "a" ]
+run  = 'shell --orphan -- "$HOME/.local/bin/send-to-agent" %s'
+desc = "Send selected files to AI agent session"
+
+[[mgr.prepend_keymap]]
+on   = [ "c", "z" ]
+run  = "plugin mkzip"
+desc = "Zip selected files (prompts for name)"
