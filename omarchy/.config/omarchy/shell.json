@@ -104,12 +104,26 @@
               "entry": {
                 "id": "stappmus.activity-monitor"
               }
+            },
+            {
+              "entry": {
+                "id": "specialkapa.solar-nightlight"
+              },
+              "listed": true
+            },
+            {
+              "entry": {
+                "id": "kokd.remote-desktop"
+              },
+              "listed": true
             }
           ],
           "order": [
             "lef.windows-vm",
             "specialkapa.spotify-dl",
-            "stappmus.activity-monitor"
+            "stappmus.activity-monitor",
+            "specialkapa.solar-nightlight",
+            "kokd.remote-desktop"
           ]
         },
         {
@@ -131,16 +145,10 @@
           "id": "omarchy.audio"
         },
         {
-          "id": "omarchy.monitor"
-        },
-        {
           "id": "omarchy.power"
         },
         {
-          "id": "kokd.remote-desktop"
-        },
-        {
-          "id": "specialkapa.solar-nightlight"
+          "id": "omarchy.monitor"
         }
       ],
       "tray": []
@@ -181,6 +189,12 @@
     },
     {
       "id": "io.github.saikomantisu.commandbar"
+    },
+    {
+      "id": "specialkapa.solar-nightlight"
+    },
+    {
+      "id": "kokd.remote-desktop"
     }
   ],
   "version": 1,
