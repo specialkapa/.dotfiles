@@ -1,0 +1,67 @@
+{
+  "name": "laptop-portable",
+  "created_at": "2026-11-19T11:10:13.846922602Z",
+  "updated_at": "2026-11-19T11:10:13.905680998Z",
+  "outputs": [
+    {
+      "key": "chimei innolux corporation|0x1406",
+      "match_key": "chimei innolux corporation|0x1406",
+      "name": "eDP-1",
+      "description": "Chimei Innolux Corporation 0x1406",
+      "make": "Chimei Innolux Corporation",
+      "model": "0x1406",
+      "enabled": true,
+      "mode": "1920x1080@60.00Hz",
+      "width": 1920,
+      "height": 1080,
+      "refresh": 60.001,
+      "x": 0,
+      "y": 0,
+      "scale": 1.5,
+      "transform": 0,
+      "bitdepth": 8,
+      "cm": "srgb",
+      "sdr_brightness": 1,
+      "sdr_saturation": 1,
+      "sdr_min_luminance": 0.2,
+      "sdr_max_luminance": 80,
+      "min_luminance": 0
+    },
+    {
+      "key": "shd|s1|s1 20250526",
+      "match_key": "shd|s1|s1 20250526",
+      "name": "DP-3",
+      "description": "SHD S1 S1 20250526",
+      "make": "SHD",
+      "model": "S1",
+      "serial": "S1 20250526",
+      "enabled": true,
+      "mode": "1920x1080@60.00Hz",
+      "width": 1920,
+      "height": 1080,
+      "refresh": 60,
+      "x": 1280,
+      "y": 0,
+      "scale": 1.5,
+      "transform": 0,
+      "bitdepth": 8,
+      "cm": "srgb",
+      "sdr_brightness": 1,
+      "sdr_saturation": 1,
+      "sdr_min_luminance": 0.2,
+      "sdr_max_luminance": 80,
+      "min_luminance": 0
+    }
+  ],
+  "workspaces": {
+    "enabled": false,
+    "strategy": "manual",
+    "max_workspaces": 9,
+    "group_size": 3,
+    "monitor_order": [
+      "chimei innolux corporation|0x1406",
+      "shd|s1|s1 20250526"
+    ]
+  },
+  "exec": ""
+}
