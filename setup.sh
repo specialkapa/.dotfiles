@@ -30,7 +30,7 @@ BACKUP_DIR="$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)"
 # Linked on every machine.
 PACKAGES=(bat btop fastfetch gh-dash git git-graph lazygit nvim opencode starship vim vimwiki wezterm)
 # Linked only with the omarchy profile (configs for Omarchy's own tools).
-OMARCHY_PACKAGES=(omarchy hyprmoncfg local-bin omarchy-autocapture mpd rmpc nautilus)
+OMARCHY_PACKAGES=(omarchy hypr hyprmoncfg local-bin omarchy-autocapture mpd rmpc nautilus)
 
 # Directories that are a whole config of their own: an existing one is backed up
 # as a unit instead of being merged file-by-file with the repo's (which would
@@ -294,7 +294,7 @@ stow_all() {
 		# Real directories, so stow links the files inside them instead of linking the
 		# whole directory into this repo (plugins are cloned into the first one;
 		# Omarchy and Nautilus keep their own files next to the nautilus links).
-		run mkdir -p "$HOME/.config/omarchy/plugins" "$HOME/.local/bin" \
+		run mkdir -p "$HOME/.config/omarchy/plugins" "$HOME/.config/hypr" "$HOME/.local/bin" \
 			"$HOME/.local/share/nautilus-python/extensions" "$HOME/.local/share/nautilus/scripts" \
 			"$HOME/.config/nautilus"
 	fi
@@ -339,8 +339,25 @@ setup_music() {
 	run systemctl --user enable --now mpd.service mpd-mpris.service
 }
 
+# Global workspace numbers with no per-monitor rules: hypr/.config/hypr/global-workspaces.lua,
+# loaded from Omarchy's user hyprland.lua (which this repo does not track).
+include_global_workspaces() {
+	local conf="$HOME/.config/hypr/hyprland.lua"
+	if [[ ! -f $conf ]]; then
+		yellow "~/.config/hypr/hyprland.lua not found; add the global-workspaces.lua dofile by hand."
+	elif ! grep -q 'global-workspaces.lua' "$conf"; then
+		info "Hyprland: load global-workspaces.lua"
+		if ((dry_run)); then
+			echo "  [dry-run] append global-workspaces.lua include to $conf" >&2
+		else
+			printf '\n-- Global workspace numbers, no per-monitor rules (dotfiles: hypr/.config/hypr/global-workspaces.lua).\ndo local path = os.getenv("HOME") .. "/.config/hypr/global-workspaces.lua"; local file = io.open(path, "r"); if file then file:close(); dofile(path) end end\n' >>"$conf"
+		fi
+	fi
+}
+
 profile_omarchy() {
 	use_my_btop_theme
+	include_global_workspaces
 	info "Omarchy plugins"
 	if ((dry_run)); then
 		run "$DOTFILES/omarchy-plugins/install-plugins.sh" --dry-run

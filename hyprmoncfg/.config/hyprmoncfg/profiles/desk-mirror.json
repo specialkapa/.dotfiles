@@ -55,58 +55,12 @@
     }
   ],
   "workspaces": {
-    "enabled": true,
+    "enabled": false,
     "strategy": "manual",
     "max_workspaces": 10,
     "group_size": 10,
     "monitor_order": [
       "dell inc.|dell u2722de|94n5bh3"
-    ],
-    "rules": [
-      {
-        "workspace": "1",
-        "output_key": "dell inc.|dell u2722de|94n5bh3"
-      },
-      {
-        "workspace": "2",
-        "output_key": "dell inc.|dell u2722de|94n5bh3"
-      },
-      {
-        "workspace": "3",
-        "output_key": "dell inc.|dell u2722de|94n5bh3"
-      },
-      {
-        "workspace": "4",
-        "output_key": "dell inc.|dell u2722de|94n5bh3"
-      },
-      {
-        "workspace": "5",
-        "output_key": "dell inc.|dell u2722de|94n5bh3"
-      },
-      {
-        "workspace": "6",
-        "output_key": "dell inc.|dell u2722de|94n5bh3"
-      },
-      {
-        "workspace": "7",
-        "output_key": "dell inc.|dell u2722de|94n5bh3"
-      },
-      {
-        "workspace": "8",
-        "output_key": "dell inc.|dell u2722de|94n5bh3"
-      },
-      {
-        "workspace": "9",
-        "output_key": "dell inc.|dell u2722de|94n5bh3"
-      },
-      {
-        "workspace": "10",
-        "output_key": "dell inc.|dell u2722de|94n5bh3"
-      },
-      {
-        "workspace": "special:qconsole",
-        "output_key": "dell inc.|dell u2722de|94n5bh3"
-      }
     ]
   },
   "exec": ""

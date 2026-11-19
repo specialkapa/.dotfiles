@@ -81,11 +81,17 @@ handles the differences:
   only at launch.
 - Remote access (SSH + Remote Desktop from my iPhone over Tailscale, firewall-locked to it): see
   [`remote-access/`](./remote-access/README.md). `setup.sh` asks before running it.
-- The `hyprmoncfg` package (also Omarchy-only) holds my monitor profiles. `desk-mirror` matches the
-  Dell U2722DE: the laptop panel mirrors the Dell with workspaces 1–10 pinned to it, and the panel is
-  turned off when the lid is closed. Run `hyprmoncfg manage` once on a new machine so the daemon
-  switches profiles automatically. Profiles saved from the TUI (new ones, or ones that replace
-  their link with a plain file) are captured into this repo automatically.
+- The `hyprmoncfg` package (also Omarchy-only) holds my monitor profiles: `laptop` (panel only),
+  `desk-mirror` (the panel mirrors the Dell U2722DE), `desk-dual` (U2722DE + SE2416H, panel
+  off) and `laptop-portable` (the SHD S1 portable monitor, 1080p at scale 1.5, to the right of the
+  panel, which stays at 0,0 as primary). None of them has a workspace plan (`"workspaces": {"enabled": false}`), so no workspace is
+  pinned to a monitor. Run `hyprmoncfg manage` once on a new machine so the daemon switches
+  profiles automatically. Profiles saved from the TUI (new ones, or ones that replace their link
+  with a plain file) are captured into this repo automatically; save new ones with planning off.
+- The `hypr` package (Omarchy-only) links `~/.config/hypr/global-workspaces.lua`, which replaces
+  Omarchy's per-monitor workspaces 1–10 with global ones: `SUPER + 1…0` always mean workspaces
+  1–10, and a workspace opens on the focused monitor and stays there while it exists. `setup.sh`
+  adds the line that loads it to Omarchy's `~/.config/hypr/hyprland.lua`.
 
 # prompt (`starship`)
 

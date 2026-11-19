@@ -79,7 +79,7 @@
     }
   ],
   "workspaces": {
-    "enabled": true,
+    "enabled": false,
     "strategy": "manual",
     "max_workspaces": 10,
     "group_size": 3,
@@ -87,63 +87,6 @@
       "dell inc.|dell u2722de|94n5bh3",
       "chimei innolux corporation|0x1406",
       "dell inc.|dell se2416h|p7ht89a617bb"
-    ],
-    "rules": [
-      {
-        "workspace": "1",
-        "output_key": "dell inc.|dell u2722de|94n5bh3",
-        "output_name": "DP-2"
-      },
-      {
-        "workspace": "2",
-        "output_key": "dell inc.|dell u2722de|94n5bh3",
-        "output_name": "DP-2"
-      },
-      {
-        "workspace": "3",
-        "output_key": "dell inc.|dell u2722de|94n5bh3",
-        "output_name": "DP-2"
-      },
-      {
-        "workspace": "4",
-        "output_key": "dell inc.|dell u2722de|94n5bh3",
-        "output_name": "DP-2"
-      },
-      {
-        "workspace": "5",
-        "output_key": "dell inc.|dell u2722de|94n5bh3",
-        "output_name": "DP-2"
-      },
-      {
-        "workspace": "6",
-        "output_key": "dell inc.|dell u2722de|94n5bh3",
-        "output_name": "DP-2"
-      },
-      {
-        "workspace": "7",
-        "output_key": "dell inc.|dell u2722de|94n5bh3",
-        "output_name": "DP-2"
-      },
-      {
-        "workspace": "8",
-        "output_key": "dell inc.|dell se2416h|p7ht89a617bb",
-        "output_name": "HDMI-A-1"
-      },
-      {
-        "workspace": "9",
-        "output_key": "dell inc.|dell se2416h|p7ht89a617bb",
-        "output_name": "HDMI-A-1"
-      },
-      {
-        "workspace": "10",
-        "output_key": "dell inc.|dell se2416h|p7ht89a617bb",
-        "output_name": "HDMI-A-1"
-      },
-      {
-        "workspace": "special:qconsole",
-        "output_key": "dell inc.|dell u2722de|94n5bh3",
-        "output_name": "DP-2"
-      }
     ]
   },
   "exec": ""
